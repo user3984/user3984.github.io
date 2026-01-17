@@ -1,0 +1,986 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Image Annotation Tool</title>
+  <style>
+    :root { --bg:#0b0d10; --panel:#12161c; --text:#e7eef7; --muted:#9fb0c3; --accent:#4da3ff; --danger:#ff5d5d; }
+    *{ box-sizing:border-box; }
+    body{ margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text); }
+    header{
+      padding:14px 16px; border-bottom:1px solid rgba(255,255,255,.08);
+      display:flex; gap:12px; align-items:center; flex-wrap:wrap;
+    }
+    header .group{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    button, input[type="file"]{
+      background:var(--panel); color:var(--text);
+      border:1px solid rgba(255,255,255,.14);
+      border-radius:10px; padding:8px 10px; font-size:14px;
+    }
+    button{ cursor:pointer; }
+    button.primary{ border-color:rgba(77,163,255,.45); box-shadow:0 0 0 1px rgba(77,163,255,.18) inset; }
+    button.danger{ border-color:rgba(255,93,93,.45); }
+    button:disabled{ opacity:.5; cursor:not-allowed; }
+    .hint{ color:var(--muted); font-size:13px; }
+    main{ padding:16px; display:grid; grid-template-columns: 1fr 320px; gap:16px; }
+    @media (max-width: 980px){ main{ grid-template-columns: 1fr; } }
+
+    .stage{
+      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:16px; padding:12px; overflow:auto; min-height: 420px;
+    }
+    .canvas-wrap{ position:relative; display:inline-block; user-select:none; }
+    canvas{ display:block; border-radius:12px; background:#0e1116; }
+    .overlay{ position:absolute; inset:0; cursor: crosshair; }
+    .side{
+      background:var(--panel);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:16px;
+      padding:12px;
+      display:flex; flex-direction:column; gap:12px;
+      height: fit-content;
+    }
+    .card{
+      background: rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:14px;
+      padding:10px;
+    }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .row .grow{ flex:1 1 auto; }
+
+    .toolbtn{
+      width:44px; height:38px; padding:0;
+      display:inline-flex; align-items:center; justify-content:center;
+      font-size:18px; line-height:1;
+      border-radius:12px;
+    }
+    .toolbtn.active{
+      border-color: rgba(77,163,255,.65);
+      box-shadow: 0 0 0 1px rgba(77,163,255,.22) inset;
+    }
+    .toolbtn .sub{
+      font-size:11px; color:var(--muted); margin-left:4px; transform: translateY(1px);
+    }
+
+    .list{
+      max-height: 320px; overflow:auto;
+      display:flex; flex-direction:column; gap:8px;
+      padding-right:4px;
+    }
+    .item{
+      display:flex; gap:10px; align-items:flex-start;
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:12px;
+      padding:8px;
+      background: rgba(0,0,0,.18);
+      cursor:pointer;
+    }
+    .badge{
+      font-size:14px; color:var(--muted);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:999px;
+      padding:2px 8px;
+      white-space:nowrap;
+      width:38px;
+      text-align:center;
+    }
+    .item .meta{ min-width:0; }
+    .item .title{ font-size:13px; line-height:1.25; word-break:break-word; }
+
+    .kbd{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:12px; border:1px solid rgba(255,255,255,.14); border-bottom-width:2px;
+      padding:1px 6px; border-radius:8px; color:var(--muted);
+    }
+
+    /* Text editor modal */
+    .modal{
+      position:fixed; inset:0;
+      background: rgba(0,0,0,0.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      z-index:9999;
+    }
+    .modal.open{ display:flex; }
+    .modal-card{
+      width:min(720px, 100%);
+      background: var(--panel);
+      border:1px solid rgba(255,255,255,.14);
+      border-radius:16px;
+      padding:14px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+    }
+    .modal-title{ font-weight:600; margin-bottom:10px; }
+    textarea{
+      width:100%;
+      min-height:120px;
+      resize:vertical;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,0.22);
+      color: var(--text);
+      padding:10px;
+      font-size:14px;
+      line-height:1.35;
+      outline:none;
+    }
+    .modal-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:10px; }
+  </style>
+</head>
+<body>
+<header>
+  <div class="group">
+    <input id="file" type="file" accept="image/*" />
+
+    <div class="group" aria-label="tools">
+      <button id="btnSingle" class="toolbtn active" title="Single-headed arrow + tail text">→<span class="sub">T</span></button>
+      <button id="btnDouble" class="toolbtn" title="Double-headed arrow + center size text">↔<span class="sub">10</span></button>
+      <button id="btnSelect" class="toolbtn" title="Select / edit">⌖</button>
+    </div>
+
+    <button id="undo" title="Undo (Ctrl/Cmd+Z)">Undo</button>
+    <button id="export" class="primary">Export PNG</button>
+  </div>
+
+  <div class="hint">
+    Add arrow: click start → click end → type text. After adding, it auto-switches to Select.
+    <span class="kbd">Del</span> delete selection, <span class="kbd">Ctrl/Cmd+Z</span> undo.
+  </div>
+</header>
+
+<main>
+  <section class="stage">
+    <div class="canvas-wrap" id="wrap">
+      <canvas id="c"></canvas>
+      <div class="overlay" id="overlay" aria-label="interaction layer"></div>
+    </div>
+  </section>
+
+  <aside class="side">
+    <div class="card">
+      <div class="row">
+        <div class="grow">
+          <div style="font-weight:600;">Tool state</div>
+          <div class="hint" id="status">Upload an image to begin.</div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <button id="editText">Edit text</button>
+        <button id="delete" class="danger">Delete</button>
+        <button id="clearAll" class="danger">Clear all</button>
+      </div>
+      <div class="hint" style="margin-top:8px;">
+        Drag endpoints to adjust. Drag near the line to move the whole arrow.
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:600; margin-bottom:8px;">Annotations</div>
+      <div class="list" id="list"></div>
+    </div>
+  </aside>
+</main>
+
+<!-- Text editor modal -->
+<div class="modal" id="modal">
+  <div class="modal-card">
+    <div class="modal-title" id="modalTitle">Edit text</div>
+    <textarea id="modalText" placeholder="Type annotation text..."></textarea>
+    <div class="modal-actions">
+      <button id="modalCancel">Cancel</button>
+      <button id="modalOk" class="primary">OK</button>
+    </div>
+    <div class="hint" style="margin-top:10px;">
+      Tip: line breaks are allowed. Text will be clamped inside the image on render/export.
+      <span class="kbd">Ctrl/Cmd+Enter</span> to confirm.
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const RED = '#ff0000';
+  const BLUE = '#3aa0ff';
+
+  const fileEl = document.getElementById('file');
+  const overlay = document.getElementById('overlay');
+  const canvas = document.getElementById('c');
+  const wrap = document.getElementById('wrap');
+  const statusEl = document.getElementById('status');
+  const listEl = document.getElementById('list');
+
+  const undoEl = document.getElementById('undo');
+  const exportEl = document.getElementById('export');
+  const editTextEl = document.getElementById('editText');
+  const deleteEl = document.getElementById('delete');
+  const clearAllEl = document.getElementById('clearAll');
+
+  const btnSingle = document.getElementById('btnSingle');
+  const btnDouble = document.getElementById('btnDouble');
+  const btnSelect = document.getElementById('btnSelect');
+
+  const modal = document.getElementById('modal');
+  const modalTitle = document.getElementById('modalTitle');
+  const modalText = document.getElementById('modalText');
+  const modalCancel = document.getElementById('modalCancel');
+  const modalOk = document.getElementById('modalOk');
+
+  const ctx = canvas.getContext('2d');
+
+  /** @type {HTMLImageElement|null} */
+  let img = null;
+  let originalFileName = 'image';
+
+  /** @type {Array<Annotation>} */
+  let anns = [];
+
+  /** @type {Array<Array<Annotation>>} */
+  let undoStack = [];
+
+  let mode = 'single'; // 'single' | 'double' | 'select'
+  let placing = null;  // { type, start:{x,y}, cur:{x,y} }
+  let selectedId = null;
+  let drag = null;     // { kind:'move'|'p0'|'p1', id, startMouse, startAnn }
+
+  const HANDLE_R = 7;
+  const HIT_LINE_PX = 10;
+
+  /** @typedef {{
+   *  id: string,
+   *  type: 'single'|'double',
+   *  x0:number, y0:number, x1:number, y1:number,
+   *  text:string
+   * }} Annotation
+   */
+
+  function uid() { return Math.random().toString(16).slice(2) + Date.now().toString(16); }
+  function deepCopyAnns(a) { return a.map(o => ({...o})); }
+
+  function pushUndo() {
+    undoStack.push(deepCopyAnns(anns));
+    if (undoStack.length > 50) undoStack.shift();
+    updateUndoUI();
+  }
+
+  function doUndo() {
+    if (!undoStack.length) return;
+    anns = undoStack.pop();
+    selectedId = null;
+    placing = null;
+    drag = null;
+    updateUndoUI();
+    render();
+    refreshList();
+    setStatus('Undid last action.');
+  }
+
+  function updateUndoUI() { undoEl.disabled = undoStack.length === 0; }
+  function setStatus(msg) { statusEl.textContent = msg; }
+
+  function fitCanvasToImage(image) {
+    // Available viewport space (accounting for sidebar 320px + gaps + padding)
+    const sidebarWidth = 340;
+    const headerHeight = 120;
+    const padding = 48;
+    
+    const availW = Math.max(400, window.innerWidth - sidebarWidth - padding);
+    const availH = Math.max(300, window.innerHeight - headerHeight - padding);
+    
+    // Absolute limits (prevent excessive memory/rendering cost)
+    const maxW = 3200;
+    const maxH = 3000;
+    const maxPixels = 4 * 1000 * 1000; // 4 megapixels for smooth canvas ops
+    
+    let w = image.naturalWidth;
+    let h = image.naturalHeight;
+    
+    // Scale to fit available space (never upscale beyond original)
+    let s = Math.min(1, availW / w, availH / h);
+    
+    // Also respect absolute max dimensions
+    s = Math.min(s, maxW / w, maxH / h);
+    
+    // Limit by pixel budget for performance
+    const pixels = (w * s) * (h * s);
+    if (pixels > maxPixels) {
+      s *= Math.sqrt(maxPixels / pixels);
+    }
+    
+    // Ensure minimum usable size (300px on smaller dimension)
+    const minDim = 300;
+    const scaledMin = Math.min(w * s, h * s);
+    if (scaledMin < minDim && Math.min(w, h) >= minDim) {
+      s = Math.max(s, minDim / Math.min(w, h));
+    }
+    
+    w = Math.round(w * s);
+    h = Math.round(h * s);
+    
+    canvas.width = w;
+    canvas.height = h;
+    overlay.style.width = w + 'px';
+    overlay.style.height = h + 'px';
+  }
+
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  function dist2(ax, ay, bx, by) { const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
+
+  function pointToSegmentDistance(px, py, ax, ay, bx, by) {
+    const abx = bx - ax, aby = by - ay;
+    const apx = px - ax, apy = py - ay;
+    const ab2 = abx*abx + aby*aby;
+    let t = ab2 ? (apx*abx + apy*aby) / ab2 : 0;
+    t = clamp(t, 0, 1);
+    const cx = ax + t*abx, cy = ay + t*aby;
+    return Math.hypot(px - cx, py - cy);
+  }
+
+  function getMousePos(evt) {
+    const r = overlay.getBoundingClientRect();
+    return { x: evt.clientX - r.left, y: evt.clientY - r.top };
+  }
+
+  function annotationById(id) { return anns.find(a => a.id === id) || null; }
+
+  function pickAnnotation(pt) {
+    const order = selectedId ? [annotationById(selectedId), ...anns.filter(a => a.id !== selectedId)] : [...anns];
+    for (const a of order) {
+      if (!a) continue;
+      if (Math.sqrt(dist2(pt.x, pt.y, a.x0, a.y0)) <= HANDLE_R + 3) return { id: a.id, kind:'p0' };
+      if (Math.sqrt(dist2(pt.x, pt.y, a.x1, a.y1)) <= HANDLE_R + 3) return { id: a.id, kind:'p1' };
+    }
+    for (let i = anns.length - 1; i >= 0; i--) {
+      const a = anns[i];
+      const d = pointToSegmentDistance(pt.x, pt.y, a.x0, a.y0, a.x1, a.y1);
+      if (d <= HIT_LINE_PX) return { id: a.id, kind:'move' };
+    }
+    return null;
+  }
+
+  function measureFontPx(W, H) {
+    // Fontsize
+    const base = Math.round(Math.min(W, H) * 0.05);
+    return clamp(base, 18, 140);
+  }
+  function measureLineWidth(W, H) {
+    const lw = Math.round(Math.min(W, H) * 0.0055);
+    return clamp(lw, 3, 24);
+  }
+
+  function wrapTextToWidth(ctx2, text, maxWidth, font) {
+    const raw = (text ?? '').toString().replace(/\r\n/g, '\n');
+    const paragraphs = raw.split('\n');
+
+    ctx2.save();
+    ctx2.font = font;
+
+    const out = [];
+    for (const para of paragraphs) {
+      const words = para.trim().split(/\s+/).filter(Boolean);
+      if (!words.length) { out.push(''); continue; }
+
+      let line = words[0];
+      for (let i = 1; i < words.length; i++) {
+        const test = line + ' ' + words[i];
+        if (ctx2.measureText(test).width <= maxWidth) line = test;
+        else { out.push(line); line = words[i]; }
+      }
+      out.push(line);
+    }
+
+    const finalLines = [];
+    for (const l of out) {
+      if (ctx2.measureText(l).width <= maxWidth) { finalLines.push(l); continue; }
+      let cur = '';
+      for (const ch of l) {
+        const test = cur + ch;
+        if (ctx2.measureText(test).width <= maxWidth) cur = test;
+        else { if (cur) finalLines.push(cur); cur = ch; }
+      }
+      if (cur) finalLines.push(cur);
+    }
+
+    ctx2.restore();
+    return finalLines.slice(0, 10);
+  }
+
+  function drawArrowHead(ctx2, xTail, yTail, xTip, yTip, size) {
+    const dx = xTip - xTail, dy = yTip - yTail;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len, uy = dy / len;
+    const px = -uy, py = ux;
+    const s = size;
+
+    const bx = xTip - ux * s;
+    const by = yTip - uy * s;
+    const c1x = bx + px * (s * 0.6);
+    const c1y = by + py * (s * 0.6);
+    const c2x = bx - px * (s * 0.6);
+    const c2y = by - py * (s * 0.6);
+
+    ctx2.beginPath();
+    ctx2.moveTo(xTip, yTip);
+    ctx2.lineTo(c1x, c1y);
+    ctx2.lineTo(c2x, c2y);
+    ctx2.closePath();
+    ctx2.fill();
+  }
+
+  function measureTextBlock(ctx2, lines, fontPx, maxW) {
+    ctx2.save();
+    ctx2.font = `${fontPx}px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial`;
+    const lineH = Math.round(fontPx * 1.22);
+    let w = 0;
+    for (const ln of lines) w = Math.max(w, ctx2.measureText(ln).width);
+    w = Math.min(w, maxW);
+    const h = lines.length * lineH;
+    ctx2.restore();
+    return { w, h, lineH };
+  }
+
+  function drawTextNoBox(ctx2, lines, centerX, centerY, fontPx, maxW, W, H) {
+    const { w, h, lineH } = measureTextBlock(ctx2, lines, fontPx, maxW);
+
+    const x0 = clamp(centerX - w/2, 2, W - w - 2);
+    const y0 = clamp(centerY - h/2, 2, H - h - 2);
+
+    ctx2.save();
+    ctx2.font = `${fontPx}px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial`;
+    ctx2.fillStyle = RED;
+    ctx2.textBaseline = 'top';
+    for (let i = 0; i < lines.length; i++) {
+      ctx2.fillText(lines[i], x0, y0 + i * lineH);
+    }
+    ctx2.restore();
+
+    return { x0, y0, w, h };
+  }
+
+  function unitAndNormal(x0,y0,x1,y1) {
+    const dx = x1 - x0, dy = y1 - y0;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len, uy = dy / len;
+    let nx = -uy, ny = ux;
+    if (ny > 0) { nx = -nx; ny = -ny; }
+    if (Math.abs(ny) < 0.15 && nx > 0) { nx = -nx; ny = -ny; }
+    return { ux, uy, nx, ny, len };
+  }
+
+  function projectionRadius(tbW, tbH, ux, uy) {
+    // AABB projection radius onto direction u: |ux|*w/2 + |uy|*h/2
+    return Math.abs(ux) * (tbW / 2) + Math.abs(uy) * (tbH / 2);
+  }
+
+  function drawAnnotation(ctx2, a, selected, W, H, scale = 1) {
+    // Calculate font and line width based on preview dimensions, then scale
+    const fontPx = measureFontPx(W / scale, H / scale) * scale;
+    const lineW = measureLineWidth(W / scale, H / scale) * scale;
+    const head = Math.max(14 * scale, Math.round(lineW * 5.5));
+
+    ctx2.save();
+    ctx2.lineWidth = lineW;
+    ctx2.strokeStyle = RED;
+    ctx2.fillStyle = RED;
+
+    // Calculate unit vector for line shortening
+    const adx = a.x1 - a.x0, ady = a.y1 - a.y0;
+    const alen = Math.hypot(adx, ady) || 1;
+    const aux = adx / alen, auy = ady / alen;
+
+    // line (shortened to stop at arrowhead base)
+    let lx0 = a.x0, ly0 = a.y0, lx1 = a.x1, ly1 = a.y1;
+    if (a.type === 'single') {
+      // Shorten at tip end only
+      lx1 = a.x1 - aux * head;
+      ly1 = a.y1 - auy * head;
+    } else {
+      // Shorten at both ends
+      lx0 = a.x0 + aux * head;
+      ly0 = a.y0 + auy * head;
+      lx1 = a.x1 - aux * head;
+      ly1 = a.y1 - auy * head;
+    }
+    ctx2.beginPath();
+    ctx2.moveTo(lx0, ly0);
+    ctx2.lineTo(lx1, ly1);
+    ctx2.stroke();
+
+    // heads
+    if (a.type === 'single') {
+      drawArrowHead(ctx2, a.x0, a.y0, a.x1, a.y1, head);
+    } else {
+      drawArrowHead(ctx2, a.x0, a.y0, a.x1, a.y1, head);
+      drawArrowHead(ctx2, a.x1, a.y1, a.x0, a.y0, head);
+    }
+
+    // text
+    const { ux, uy, nx, ny } = unitAndNormal(a.x0,a.y0,a.x1,a.y1);
+    const maxW = Math.max(200, Math.round(W * (a.type === 'single' ? 0.42 : 0.32)));
+    const lines = wrapTextToWidth(ctx2, a.text, maxW, `${fontPx}px ui-sans-serif`);
+    const tb = measureTextBlock(ctx2, lines, fontPx, maxW);
+    const margin = Math.max(lineW * 3.0, fontPx * 0.4);
+
+    let centerX, centerY;
+
+    if (a.type === 'single') {
+      // Center lies on extended arrow line at the tail.
+      // Offset along arrow direction (backwards) just enough to avoid overlap with arrow segment.
+      const along = 0.5 * Math.min(tb.w / Math.abs(ux), tb.h / Math.abs(uy)) + margin;
+
+      centerX = a.x0 - ux * along;
+      centerY = a.y0 - uy * along;
+
+      // If clamping would push the box into the segment near the tail, add a small normal nudge.
+      // (Rare; mainly near image borders.)
+      const borderPad = 2 + tb.h/2;
+      if (centerX < borderPad || centerX > W - borderPad || centerY < borderPad || centerY > H - borderPad) {
+        const nudge = Math.max(lineW * 3, fontPx * 0.35);
+        centerX += nx * nudge;
+        centerY += ny * nudge;
+      }
+    } else {
+      // Double-headed: perpendicular bisector, offset along normal by half text height + margin.
+      const mx = (a.x0 + a.x1) / 2;
+      const my = (a.y0 + a.y1) / 2;
+      const gap = projectionRadius(tb.w, tb.h, uy, ux) + margin;
+      centerX = mx + nx * gap;
+      centerY = my + ny * gap;
+    }
+
+    drawTextNoBox(ctx2, lines, centerX, centerY, fontPx, maxW, W, H);
+
+    // selection handles: endpoints BLUE for contrast
+    if (selected) {
+      ctx2.save();
+      ctx2.fillStyle = BLUE;
+      ctx2.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx2.lineWidth = 2;
+      for (const p of [[a.x0,a.y0],[a.x1,a.y1]]) {
+        ctx2.beginPath();
+        ctx2.arc(p[0], p[1], HANDLE_R, 0, Math.PI*2);
+        ctx2.fill();
+        ctx2.stroke();
+      }
+      ctx2.restore();
+    }
+
+    ctx2.restore();
+  }
+
+  function render() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    if (img) ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    else {
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.font = '16px ui-sans-serif, system-ui';
+      ctx.fillText('Upload an image to start annotating.', 18, 28);
+      ctx.restore();
+      return;
+    }
+
+    for (const a of anns) drawAnnotation(ctx, a, a.id === selectedId, canvas.width, canvas.height);
+
+    if (placing) {
+      ctx.save();
+      ctx.strokeStyle = RED;
+      ctx.lineWidth = measureLineWidth(canvas.width, canvas.height);
+      ctx.setLineDash([10, 8]);
+      ctx.beginPath();
+      ctx.moveTo(placing.start.x, placing.start.y);
+      ctx.lineTo(placing.cur.x, placing.cur.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function refreshList() {
+    listEl.innerHTML = '';
+    if (!anns.length) {
+      const empty = document.createElement('div');
+      empty.className = 'hint';
+      empty.textContent = 'No annotations yet.';
+      listEl.appendChild(empty);
+      return;
+    }
+    for (const a of anns.slice().reverse()) {
+      const row = document.createElement('div');
+      row.className = 'item';
+      row.style.borderColor = (a.id === selectedId) ? 'rgba(77,163,255,.55)' : 'rgba(255,255,255,.10)';
+
+      const badge = document.createElement('div');
+      badge.className = 'badge';
+      badge.textContent = a.type === 'single' ? '→' : '↔';
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+
+      const t = document.createElement('div');
+      t.className = 'title';
+      t.textContent = a.text || '(empty)';
+      meta.appendChild(t);
+
+      row.appendChild(badge);
+      row.appendChild(meta);
+
+      row.onclick = () => {
+        selectedId = a.id;
+        setMode('select');
+        render();
+        refreshList();
+        setStatus('Selected annotation.');
+      };
+
+      listEl.appendChild(row);
+    }
+  }
+
+  function ensureCanvasReady() {
+    if (!img) { setStatus('Upload an image first.'); return false; }
+    return true;
+  }
+
+  function setMode(next) {
+    mode = next;
+    placing = null;
+    drag = null;
+    btnSingle.classList.toggle('active', mode === 'single');
+    btnDouble.classList.toggle('active', mode === 'double');
+    btnSelect.classList.toggle('active', mode === 'select');
+
+    if (mode !== 'select') selectedId = null;
+
+    if (mode === 'select') setStatus('Select/edit mode: click an arrow, drag endpoints or line.');
+    else setStatus('Add mode: click start then end.');
+    render(); refreshList();
+  }
+
+  btnSingle.onclick = () => setMode('single');
+  btnDouble.onclick = () => setMode('double');
+  btnSelect.onclick = () => setMode('select');
+
+  // --- Textarea editor modal ---
+  let modalResolve = null;
+
+  function openTextEditor({ title, initial }) {
+    modalTitle.textContent = title;
+    modalText.value = initial ?? '';
+    modal.classList.add('open');
+    modalText.focus();
+    modalText.selectionStart = modalText.value.length;
+    modalText.selectionEnd = modalText.value.length;
+    return new Promise((resolve) => { modalResolve = resolve; });
+  }
+
+  function closeTextEditor(result) {
+    modal.classList.remove('open');
+    const r = modalResolve;
+    modalResolve = null;
+    if (r) r(result);
+  }
+
+  modalCancel.onclick = () => closeTextEditor(null);
+  modalOk.onclick = () => closeTextEditor(modalText.value);
+  modal.addEventListener('mousedown', (e) => {
+    if (e.target === modal) closeTextEditor(null);
+  });
+  window.addEventListener('keydown', (e) => {
+    if (!modal.classList.contains('open')) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeTextEditor(null); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); closeTextEditor(modalText.value); }
+  });
+
+  // Upload
+  fileEl.addEventListener('change', async () => {
+    const f = fileEl.files && fileEl.files[0];
+    if (!f) return;
+
+    // Store original filename without extension
+    const nameParts = f.name.split('.');
+    if (nameParts.length > 1) nameParts.pop();
+    originalFileName = nameParts.join('.') || 'image';
+
+    const url = URL.createObjectURL(f);
+    const image = new Image();
+    image.onload = () => {
+      img = image;
+      fitCanvasToImage(image);
+      wrap.style.width = canvas.width + 'px';
+      wrap.style.height = canvas.height + 'px';
+      anns = [];
+      undoStack = [];
+      placing = null;
+      selectedId = null;
+      updateUndoUI();
+      refreshList();
+      render();
+      setStatus('Image loaded. Choose an arrow tool and click to start/end.');
+      URL.revokeObjectURL(url);
+    };
+    image.src = url;
+  });
+
+  // Drag undo: push once at drag start
+  let dragUndoPushed = false;
+  function pushUndoOncePerDrag() {
+    if (!drag || dragUndoPushed) return;
+    pushUndo();
+    dragUndoPushed = true;
+  }
+  overlay.addEventListener('mousedown', () => { dragUndoPushed = false; });
+
+  function addAnnotation(type, start, end, text) {
+    const a = { id: uid(), type, x0:start.x, y0:start.y, x1:end.x, y1:end.y, text: (text ?? '').toString().trim() };
+    anns.push(a);
+    selectedId = a.id;
+    refreshList();
+    render();
+  }
+
+  // Mouse interactions
+  overlay.addEventListener('mousedown', (evt) => {
+    if (!ensureCanvasReady()) return;
+    const pt = getMousePos(evt);
+
+    if (mode === 'select') {
+      const hit = pickAnnotation(pt);
+      if (!hit) { selectedId = null; render(); refreshList(); return; }
+      selectedId = hit.id;
+      const a = annotationById(hit.id);
+      drag = { kind: hit.kind, id: hit.id, startMouse: pt, startAnn: {...a} };
+      render(); refreshList();
+      return;
+    }
+
+    // add mode
+    const type = mode === 'double' ? 'double' : 'single';
+    if (!placing) {
+      placing = { type, start: pt, cur: pt };
+      selectedId = null;
+      render();
+      setStatus('Now click the end point.');
+    } else {
+      const start = placing.start;
+      const end = pt;
+      placing = null;
+
+      if (Math.hypot(end.x - start.x, end.y - start.y) < 6) {
+        render();
+        setStatus('Arrow too short; try again.');
+        return;
+      }
+
+      const title = (type === 'double')
+        ? 'Enter size text (e.g., "10 in")'
+        : 'Enter description text';
+
+      (async () => {
+        const text = await openTextEditor({ title, initial: '' });
+        if (text === null) { render(); setStatus('Cancelled.'); return; }
+        pushUndo();
+        addAnnotation(type, start, end, text);
+
+        // Auto-switch to Select mode after adding
+        setMode('select');
+        setStatus('Added. Now in Select mode.');
+      })();
+    }
+  });
+
+  overlay.addEventListener('mousemove', (evt) => {
+    if (!img) return;
+    const pt = getMousePos(evt);
+
+    if (placing) {
+      placing.cur = pt;
+      render();
+      return;
+    }
+
+    if (drag) {
+      const a = annotationById(drag.id);
+      if (!a) return;
+
+      const dx = pt.x - drag.startMouse.x;
+      const dy = pt.y - drag.startMouse.y;
+      const base = drag.startAnn;
+
+      pushUndoOncePerDrag();
+
+      if (drag.kind === 'move') {
+        a.x0 = clamp(base.x0 + dx, 0, canvas.width);
+        a.y0 = clamp(base.y0 + dy, 0, canvas.height);
+        a.x1 = clamp(base.x1 + dx, 0, canvas.width);
+        a.y1 = clamp(base.y1 + dy, 0, canvas.height);
+      } else if (drag.kind === 'p0') {
+        a.x0 = clamp(base.x0 + dx, 0, canvas.width);
+        a.y0 = clamp(base.y0 + dy, 0, canvas.height);
+      } else if (drag.kind === 'p1') {
+        a.x1 = clamp(base.x1 + dx, 0, canvas.width);
+        a.y1 = clamp(base.y1 + dy, 0, canvas.height);
+      }
+      render();
+      refreshList();
+    } else if (mode === 'select') {
+      const hit = pickAnnotation(pt);
+      overlay.style.cursor = hit ? (hit.kind === 'move' ? 'move' : 'pointer') : 'default';
+    } else {
+      overlay.style.cursor = 'crosshair';
+    }
+  });
+
+  overlay.addEventListener('mouseup', () => {
+    if (drag) {
+      drag = null;
+      render();
+      setStatus('Edited annotation.');
+    }
+  });
+
+  overlay.addEventListener('mouseleave', () => {
+    if (placing) return;
+    if (drag) { drag = null; render(); }
+    overlay.style.cursor = 'default';
+  });
+
+  overlay.addEventListener('dblclick', async (evt) => {
+    if (!ensureCanvasReady()) return;
+    const pt = getMousePos(evt);
+    const hit = pickAnnotation(pt);
+    if (!hit) return;
+
+    selectedId = hit.id;
+    const a = annotationById(hit.id);
+    if (!a) return;
+
+    const title = (a.type === 'double')
+      ? 'Edit size text (e.g., "10 in")'
+      : 'Edit description text';
+
+    const next = await openTextEditor({ title, initial: a.text });
+    if (next === null) return;
+
+    pushUndo();
+    a.text = next.toString();
+    render(); refreshList();
+    setStatus('Text updated.');
+  });
+
+  // Keyboard shortcuts
+  window.addEventListener('keydown', (e) => {
+    if (modal.classList.contains('open')) return;
+
+    const z = (e.key || '').toLowerCase() === 'z';
+    const isUndo = (z && (e.ctrlKey || e.metaKey) && !e.shiftKey);
+    if (isUndo) { e.preventDefault(); doUndo(); }
+
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
+      e.preventDefault();
+      deleteSelected();
+    }
+
+    if (e.key === 'Escape') {
+      placing = null; drag = null;
+      render();
+      setStatus('Cancelled current action.');
+    }
+  });
+
+  // Buttons
+  undoEl.addEventListener('click', doUndo);
+
+  function deleteSelected() {
+    if (!selectedId) return;
+    pushUndo();
+    anns = anns.filter(a => a.id !== selectedId);
+    selectedId = null;
+    render(); refreshList();
+    setStatus('Deleted annotation.');
+  }
+  deleteEl.addEventListener('click', deleteSelected);
+
+  editTextEl.addEventListener('click', async () => {
+    if (!selectedId) { setStatus('Select an annotation first.'); return; }
+    const a = annotationById(selectedId);
+    if (!a) return;
+
+    const title = (a.type === 'double')
+      ? 'Edit size text (e.g., "10 in")'
+      : 'Edit description text';
+
+    const next = await openTextEditor({ title, initial: a.text });
+    if (next === null) return;
+
+    pushUndo();
+    a.text = next.toString();
+    render(); refreshList();
+    setStatus('Text updated.');
+  });
+
+  clearAllEl.addEventListener('click', () => {
+    if (!img || !anns.length) return;
+    const ok = window.confirm('Clear all annotations?');
+    if (!ok) return;
+    pushUndo();
+    anns = [];
+    selectedId = null;
+    render(); refreshList();
+    setStatus('Cleared all annotations.');
+  });
+
+  exportEl.addEventListener('click', () => {
+    if (!img) { setStatus('Upload an image first.'); return; }
+
+    const out = document.createElement('canvas');
+    out.width = img.naturalWidth;
+    out.height = img.naturalHeight;
+    const octx = out.getContext('2d');
+
+    octx.drawImage(img, 0, 0, out.width, out.height);
+
+    const sx = out.width / canvas.width;
+    const sy = out.height / canvas.height;
+    // Use uniform scale factor for font/line calculations
+    const scale = (sx + sy) / 2;
+
+    for (const a of anns) {
+      const aa = {
+        ...a,
+        x0: a.x0 * sx, y0: a.y0 * sy,
+        x1: a.x1 * sx, y1: a.y1 * sy
+      };
+      drawAnnotation(octx, aa, false, out.width, out.height, scale);
+    }
+
+    const link = document.createElement('a');
+    link.download = `${originalFileName}_annotated.png`;
+    link.href = out.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setStatus('PNG exported.');
+  });
+
+  // Init
+  canvas.width = 1200; canvas.height = 700;
+  overlay.style.width = canvas.width + 'px';
+  overlay.style.height = canvas.height + 'px';
+  wrap.style.width = canvas.width + 'px';
+  wrap.style.height = canvas.height + 'px';
+  updateUndoUI();
+  refreshList();
+  render();
+  setMode('single');
+
+})();
+</script>
+</body>
+</html>
