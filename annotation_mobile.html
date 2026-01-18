@@ -2,266 +2,443 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Image Annotation Tool (Touch)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>Image Annotation Tool - Mobile</title>
   <style>
-    :root { --bg:#0b0d10; --panel:#12161c; --text:#e7eef7; --muted:#9fb0c3; --accent:#4da3ff; --danger:#ff5d5d; }
-    *{ box-sizing:border-box; }
-    body{
-      margin:0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
-      background:var(--bg);
-      color:var(--text);
-      min-height:100vh;
-      padding-bottom: env(safe-area-inset-bottom);
+    :root {
+      --bg: #0a0c0f;
+      --panel: #151a21;
+      --surface: #1c2128;
+      --text: #e8eff8;
+      --muted: #8aa2b8;
+      --accent: #4da3ff;
+      --accent-dim: rgba(77,163,255,.25);
+      --danger: #ff5d5d;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-top: env(safe-area-inset-top, 0px);
     }
-    header{
-      padding:14px 16px;
-      border-bottom:1px solid rgba(255,255,255,.08);
-      display:flex;
-      gap:12px;
-      align-items:center;
-      flex-wrap:wrap;
-      position:sticky;
-      top:0;
-      z-index:10;
-      background:var(--bg);
-      padding-top: calc(12px + env(safe-area-inset-top));
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      touch-action: none;
+      overscroll-behavior: none;
+      -webkit-overflow-scrolling: none;
     }
-    header .group{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    button, input[type="file"]{
-      background:var(--panel); color:var(--text);
-      border:1px solid rgba(255,255,255,.14);
-      border-radius:10px; padding:8px 10px; font-size:14px;
-    }
-    button{ cursor:pointer; }
-    button.primary{ border-color:rgba(77,163,255,.45); box-shadow:0 0 0 1px rgba(77,163,255,.18) inset; }
-    button.danger{ border-color:rgba(255,93,93,.45); }
-    button:disabled{ opacity:.5; cursor:not-allowed; }
-    .hint{ color:var(--muted); font-size:13px; }
-    main{ padding:16px; display:grid; grid-template-columns: 1fr 320px; gap:16px; }
-    @media (max-width: 980px){ main{ grid-template-columns: 1fr; } }
-
-    .stage{
-      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
-      border:1px solid rgba(255,255,255,.10);
-      border-radius:16px; padding:12px; overflow:auto; min-height: 420px;
-      -webkit-overflow-scrolling: touch;
-    }
-    .canvas-wrap{ position:relative; display:inline-block; user-select:none; touch-action:none; }
-    canvas{ display:block; border-radius:12px; background:#0e1116; }
-    .overlay{ position:absolute; inset:0; cursor: crosshair; touch-action:none; }
-    .side{
-      background:var(--panel);
-      border:1px solid rgba(255,255,255,.10);
-      border-radius:16px;
-      padding:12px;
-      display:flex; flex-direction:column; gap:12px;
-      height: fit-content;
-    }
-    .card{
-      background: rgba(255,255,255,.03);
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:14px;
-      padding:10px;
-    }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .row .grow{ flex:1 1 auto; }
-
-    .toolbtn{
-      width:44px; height:38px; padding:0;
-      display:inline-flex; align-items:center; justify-content:center;
-      font-size:18px; line-height:1;
-      border-radius:12px;
-    }
-    .toolbtn.active{
-      border-color: rgba(77,163,255,.65);
-      box-shadow: 0 0 0 1px rgba(77,163,255,.22) inset;
-    }
-    .toolbtn .sub{
-      font-size:11px; color:var(--muted); margin-left:4px; transform: translateY(1px);
-    }
-
-    .list{
-      max-height: 400px; overflow:auto;
-      display:flex; flex-direction:column; gap:8px;
-      padding-right:4px;
-    }
-    .item{
-      display:flex; gap:10px; align-items:flex-start;
-      border:1px solid rgba(255,255,255,.10);
-      border-radius:12px;
-      padding:8px;
-      background: rgba(0,0,0,.18);
-      cursor:pointer;
-    }
-    .badge{
-      font-size:14px; color:var(--muted);
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:999px;
-      padding:2px 8px;
-      white-space:nowrap;
-      width:38px;
-      text-align:center;
-    }
-    .item .meta{ min-width:0; flex:1; }
-    .item .title{
-      font-size:13px; line-height:1.25;
-      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-      max-width:180px;
-    }
-    .item .controls{ display:flex; gap:6px; align-items:center; margin-top:6px; flex-wrap:wrap; }
-    .font-adj{
-      display:inline-flex; align-items:center; gap:0;
-      border:1px solid rgba(255,255,255,.14);
-      border-radius:8px; overflow:hidden;
-      background: rgba(0,0,0,.25);
-    }
-    .font-adj button{
-      width:22px; height:22px; padding:0;
-      border:none; border-radius:0;
-      background:transparent; color:var(--text);
-      font-size:14px; line-height:1;
-      cursor:pointer;
-    }
-    .font-adj button:hover{ background:rgba(255,255,255,.08); }
-    .font-adj .val{
-      min-width:28px; text-align:center;
-      font-size:11px; color:var(--muted);
-      padding:0 2px;
-    }
-    .color-sel{
-      padding:2px 6px; font-size:11px;
-      border:1px solid rgba(255,255,255,.14);
-      border-radius:6px;
-      background:rgba(0,0,0,.25);
-      color:var(--text);
-      cursor:pointer;
-    }
-    .color-sel:focus{ outline:none; border-color:var(--accent); }
-
-    .kbd{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size:12px; border:1px solid rgba(255,255,255,.14); border-bottom-width:2px;
-      padding:1px 6px; border-radius:8px; color:var(--muted);
-    }
-
-    /* Text editor modal */
-    .modal{
-      position:fixed; inset:0;
-      background: rgba(0,0,0,0.55);
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding:18px;
-      z-index:9999;
-    }
-    .modal.open{ display:flex; }
-    .modal-card{
-      width:min(720px, 100%);
-      background: var(--panel);
-      border:1px solid rgba(255,255,255,.14);
-      border-radius:16px;
-      padding:14px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.45);
-    }
-    .modal-title{ font-weight:600; margin-bottom:10px; }
-    textarea{
-      width:100%;
-      min-height:120px;
-      resize:vertical;
-      border-radius:12px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(0,0,0,0.22);
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+      background: var(--bg);
       color: var(--text);
-      padding:10px;
-      font-size:14px;
-      line-height:1.35;
-      outline:none;
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      inset: 0;
+      padding-top: var(--safe-top);
     }
-    .modal-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:10px; }
 
-    @media (max-width: 980px){
-      header{ gap:10px; }
-      button, input[type="file"]{ padding:10px 12px; font-size:15px; }
-      .toolbtn{ width:52px; height:44px; font-size:20px; }
-      .toolbtn .sub{ font-size:12px; }
-      .hint{ font-size:14px; }
-      main{ padding:12px; gap:12px; }
-      .stage{ min-height: 320px; }
-      .list{ max-height:260px; }
-      .item{ padding:10px; }
-      .badge{ width:44px; }
-      textarea{ font-size:16px; }
+    /* Header */
+    header {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: var(--panel);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      gap: 8px;
+      z-index: 100;
     }
+    .header-left, .header-right {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    /* Buttons */
+    button {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 10px;
+      font-size: 14px;
+      padding: 10px 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 44px;
+      min-width: 44px;
+      -webkit-tap-highlight-color: transparent;
+      transition: background .15s, border-color .15s;
+    }
+    button:active { background: rgba(255,255,255,.08); }
+    button.active {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #000;
+      font-weight: 600;
+    }
+    button.danger { border-color: var(--danger); color: var(--danger); }
+    button.icon-btn {
+      padding: 0;
+      width: 44px;
+      height: 44px;
+      font-size: 20px;
+    }
+
+    /* Canvas area */
+    .stage {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.1));
+      touch-action: none;
+    }
+    .canvas-container {
+      position: relative;
+      transform-origin: center center;
+      touch-action: none;
+    }
+    canvas {
+      display: block;
+      border-radius: 8px;
+      background: #0e1116;
+    }
+    .overlay {
+      position: absolute;
+      inset: 0;
+      cursor: crosshair;
+      touch-action: none;
+    }
+
+    /* Zoom indicator */
+    .zoom-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: rgba(0,0,0,.7);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .2s;
+      z-index: 50;
+    }
+    .zoom-badge.visible { opacity: 1; }
+
+    /* Bottom bar */
+    .bottom-bar {
+      flex-shrink: 0;
+      background: var(--panel);
+      border-top: 1px solid rgba(255,255,255,.08);
+      padding: 10px 12px;
+      padding-bottom: calc(10px + var(--safe-bottom));
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 100;
+    }
+    .tool-row {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+    }
+    .status-bar {
+      font-size: 13px;
+      color: var(--muted);
+      text-align: center;
+      padding: 4px 0;
+    }
+
+    /* Selection info panel - always visible, compact single row */
+    .selection-panel {
+      display: flex;
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 6px 10px;
+      gap: 8px;
+      align-items: center;
+      min-height: 48px;
+    }
+    .selection-label {
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .selection-label.has-selection {
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 16px;
+    }
+    .selection-text {
+      font-size: 13px;
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+      min-width: 0;
+    }
+    .selection-controls {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .selection-controls.hidden { display: none; }
+    .adj-group {
+      display: flex;
+      align-items: center;
+      background: rgba(0,0,0,.3);
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,.1);
+      overflow: hidden;
+    }
+    .adj-group button {
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      min-height: 28px;
+      padding: 0;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      font-size: 14px;
+    }
+    .adj-group button:active { background: rgba(255,255,255,.1); }
+    .adj-val {
+      padding: 0 4px;
+      font-size: 10px;
+      color: var(--muted);
+      white-space: nowrap;
+      min-width: 32px;
+      text-align: center;
+    }
+    .color-btn {
+      width: 32px;
+      height: 32px;
+      min-width: 32px;
+      min-height: 32px;
+      border-radius: 6px;
+      border: 2px solid rgba(255,255,255,.2);
+      padding: 0;
+    }
+    .color-btn.active { border-color: var(--accent); }
+
+    /* Menu overlay */
+    .menu-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.6);
+      z-index: 200;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .menu-overlay.open { display: flex; }
+    .menu-sheet {
+      background: var(--panel);
+      width: 100%;
+      max-width: 500px;
+      border-radius: 20px 20px 0 0;
+      padding: 16px;
+      padding-bottom: calc(16px + var(--safe-bottom));
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .menu-sheet .handle {
+      width: 36px;
+      height: 4px;
+      background: rgba(255,255,255,.3);
+      border-radius: 2px;
+      margin: 0 auto 12px;
+    }
+    .menu-sheet button {
+      width: 100%;
+      justify-content: flex-start;
+      padding: 14px 16px;
+      font-size: 16px;
+    }
+
+    /* Color picker sheet */
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      padding: 10px 0;
+    }
+    .color-grid button {
+      aspect-ratio: 1;
+      width: 100%;
+      min-width: 0;
+      min-height: 0;
+      border-radius: 12px;
+      padding: 0;
+    }
+
+    /* Text modal */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.7);
+      z-index: 300;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal.open { display: flex; }
+    .modal-card {
+      width: 100%;
+      max-width: 500px;
+      background: var(--panel);
+      border-radius: 16px;
+      padding: 16px;
+    }
+    .modal-title {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      background: rgba(0,0,0,.3);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 12px;
+      color: var(--text);
+      padding: 12px;
+      font-size: 16px;
+      line-height: 1.4;
+      resize: vertical;
+    }
+    textarea:focus { outline: none; border-color: var(--accent); }
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .modal-actions button { flex: 1; }
+
+    /* File input styling */
+    .file-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 14px;
+      min-height: 44px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .file-label:active { background: rgba(255,255,255,.08); }
+    input[type="file"] { display: none; }
+
+    /* Help text */
+    .hint { color: var(--muted); font-size: 12px; }
   </style>
 </head>
 <body>
+
 <header>
-  <div class="group">
-    <input id="file" type="file" accept="image/*" />
-
-    <div class="group" aria-label="tools">
-      <button id="btnSingle" class="toolbtn active" title="Single-headed arrow + tail text">→<span class="sub">T</span></button>
-      <button id="btnDouble" class="toolbtn" title="Double-headed arrow + center size text">↔<span class="sub">10</span></button>
-      <button id="btnText" class="toolbtn" title="Text box only (no arrow)">T</button>
-      <button id="btnSelect" class="toolbtn" title="Select / edit">⌖</button>
-    </div>
-
-    <button id="undo" title="Undo (Ctrl/Cmd+Z)">Undo</button>
-    <button id="export" class="primary">Export</button>
+  <div class="header-left">
+    <label class="file-label">
+      <input id="file" type="file" accept="image/*" />
+      📂 Open
+    </label>
   </div>
-
-  <div class="hint">
-    Touch: tap start → tap end → type text. Text only: tap once → type text.
-    <span class="kbd">Del</span> delete selection, <span class="kbd">Ctrl/Cmd+Z</span> undo.
+  <div class="header-right">
+    <button id="undoBtn" class="icon-btn" title="Undo" disabled>↩</button>
+    <button id="menuBtn" class="icon-btn" title="More">⋯</button>
   </div>
 </header>
 
-<main>
-  <section class="stage">
-    <div class="canvas-wrap" id="wrap">
-      <canvas id="c"></canvas>
-      <div class="overlay" id="overlay" aria-label="interaction layer"></div>
-    </div>
-  </section>
+<section class="stage" id="stage">
+  <div class="zoom-badge" id="zoomBadge">100%</div>
+  <div class="canvas-container" id="canvasContainer">
+    <canvas id="canvas"></canvas>
+    <div class="overlay" id="overlay"></div>
+  </div>
+</section>
 
-  <aside class="side">
-    <div class="card">
-      <div class="row">
-        <div class="grow">
-          <div style="font-weight:600;">Tool state</div>
-          <div class="hint" id="status">Upload an image to begin.</div>
-        </div>
+<div class="bottom-bar">
+  <div class="selection-panel" id="selectionPanel">
+    <span class="selection-label" id="selLabel">No selection</span>
+    <span class="selection-text" id="selText"></span>
+    <div class="selection-controls hidden" id="selControls">
+      <div class="adj-group" id="fontAdj">
+        <button id="fontMinus">−</button>
+        <span class="adj-val" id="fontVal">T</span>
+        <button id="fontPlus">+</button>
       </div>
-      <div class="row" style="margin-top:10px;">
-        <button id="editText">Edit text</button>
-        <button id="delete" class="danger">Delete</button>
-        <button id="clearAll" class="danger">Clear all</button>
+      <div class="adj-group" id="lineAdj">
+        <button id="lineMinus">−</button>
+        <span class="adj-val" id="lineVal">↔</span>
+        <button id="linePlus">+</button>
       </div>
-      <div class="hint" style="margin-top:8px;">
-        Drag endpoints to adjust. Drag near the line to move the whole arrow.
-      </div>
+      <button id="colorBtn" class="color-btn" style="background:#ff0000;width:32px;height:32px;min-width:32px;min-height:32px;" title="Color"></button>
+      <button id="editTextBtn" class="icon-btn" style="width:32px;height:32px;min-width:32px;min-height:32px;font-size:13px;">✏️</button>
+      <button id="deleteBtn" class="danger icon-btn" style="width:32px;height:32px;min-width:32px;min-height:32px;font-size:14px;">🗑</button>
     </div>
+  </div>
+  
+  <div class="tool-row">
+    <button id="btnSingle" class="active" title="Single arrow">→ Arrow</button>
+    <button id="btnDouble" title="Double arrow">↔ Size</button>
+    <button id="btnText" title="Text only">T Text</button>
+    <button id="btnSelect" title="Select/Edit">⌖</button>
+  </div>
+  
+  <div class="status-bar" id="status">Open an image to start annotating</div>
+</div>
 
-    <div class="card">
-      <div style="font-weight:600; margin-bottom:8px;">Annotations</div>
-      <div class="list" id="list"></div>
-    </div>
-  </aside>
-</main>
+<!-- More menu -->
+<div class="menu-overlay" id="menuOverlay">
+  <div class="menu-sheet">
+    <div class="handle"></div>
+    <button id="exportBtn" class="primary">💾 Export Image</button>
+    <button id="clearBtn" class="danger">🗑 Clear All Annotations</button>
+    <button id="resetZoomBtn">🔍 Reset Zoom</button>
+    <button id="closeMenuBtn">Cancel</button>
+  </div>
+</div>
+
+<!-- Color picker -->
+<div class="menu-overlay" id="colorOverlay">
+  <div class="menu-sheet">
+    <div class="handle"></div>
+    <div style="font-weight:600;margin-bottom:8px;">Choose Color</div>
+    <div class="color-grid" id="colorGrid"></div>
+    <button id="closeColorBtn">Cancel</button>
+  </div>
+</div>
 
 <!-- Text editor modal -->
 <div class="modal" id="modal">
   <div class="modal-card">
-    <div class="modal-title" id="modalTitle">Edit text</div>
+    <div class="modal-title" id="modalTitle">Enter text</div>
     <textarea id="modalText" placeholder="Type annotation text..."></textarea>
     <div class="modal-actions">
       <button id="modalCancel">Cancel</button>
       <button id="modalOk" class="primary">OK</button>
-    </div>
-    <div class="hint" style="margin-top:10px;">
-      Tip: line breaks are allowed. Text will be clamped inside the image on render/export.
-      <span class="kbd">Ctrl/Cmd+Enter</span> to confirm.
     </div>
   </div>
 </div>
@@ -270,8 +447,7 @@
 (() => {
   const DEFAULT_COLOR = '#ff0000';
   const BLUE = '#3aa0ff';
-
-  // Available colors for annotations
+  
   const COLOR_OPTIONS = [
     { value: '#ff0000', label: 'Red' },
     { value: '#00cc00', label: 'Green' },
@@ -284,36 +460,60 @@
     { value: '#ffffff', label: 'White' },
     { value: '#000000', label: 'Black' },
   ];
-
-  const DEFAULT_FONT_SIZE = 100; // percentage (100 = normal)
+  
+  const DEFAULT_FONT_SIZE = 100;
   const MIN_FONT_SIZE = 50;
   const MAX_FONT_SIZE = 200;
   const FONT_STEP = 10;
-
-  const DEFAULT_LINE_WIDTH = 100; // percentage (100 = normal)
+  
+  const DEFAULT_LINE_WIDTH = 100;
   const MIN_LINE_WIDTH = 25;
   const MAX_LINE_WIDTH = 200;
   const LINE_WIDTH_STEP = 25;
 
+  // Elements
   const fileEl = document.getElementById('file');
+  const stage = document.getElementById('stage');
+  const canvasContainer = document.getElementById('canvasContainer');
+  const canvas = document.getElementById('canvas');
   const overlay = document.getElementById('overlay');
-  const canvas = document.getElementById('c');
-  const wrap = document.getElementById('wrap');
   const statusEl = document.getElementById('status');
-  const listEl = document.getElementById('list');
-  const headerEl = document.querySelector('header');
-
-  const undoEl = document.getElementById('undo');
-  const exportEl = document.getElementById('export');
-  const editTextEl = document.getElementById('editText');
-  const deleteEl = document.getElementById('delete');
-  const clearAllEl = document.getElementById('clearAll');
-
+  const zoomBadge = document.getElementById('zoomBadge');
+  
+  const undoBtn = document.getElementById('undoBtn');
+  const menuBtn = document.getElementById('menuBtn');
+  const menuOverlay = document.getElementById('menuOverlay');
+  const exportBtn = document.getElementById('exportBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const resetZoomBtn = document.getElementById('resetZoomBtn');
+  const closeMenuBtn = document.getElementById('closeMenuBtn');
+  
+  const colorOverlay = document.getElementById('colorOverlay');
+  const colorGrid = document.getElementById('colorGrid');
+  const closeColorBtn = document.getElementById('closeColorBtn');
+  const colorBtn = document.getElementById('colorBtn');
+  
   const btnSingle = document.getElementById('btnSingle');
   const btnDouble = document.getElementById('btnDouble');
   const btnText = document.getElementById('btnText');
   const btnSelect = document.getElementById('btnSelect');
-
+  
+  const selectionPanel = document.getElementById('selectionPanel');
+  const selLabel = document.getElementById('selLabel');
+  const selText = document.getElementById('selText');
+  const selControls = document.getElementById('selControls');
+  const editTextBtn = document.getElementById('editTextBtn');
+  const deleteBtn = document.getElementById('deleteBtn');
+  
+  const fontAdj = document.getElementById('fontAdj');
+  const fontMinus = document.getElementById('fontMinus');
+  const fontPlus = document.getElementById('fontPlus');
+  const fontVal = document.getElementById('fontVal');
+  const lineAdj = document.getElementById('lineAdj');
+  const lineMinus = document.getElementById('lineMinus');
+  const linePlus = document.getElementById('linePlus');
+  const lineVal = document.getElementById('lineVal');
+  
   const modal = document.getElementById('modal');
   const modalTitle = document.getElementById('modalTitle');
   const modalText = document.getElementById('modalText');
@@ -322,42 +522,28 @@
 
   const ctx = canvas.getContext('2d');
 
-  /** @type {HTMLImageElement|null} */
   let img = null;
   let originalFileName = 'image';
-
-  /** @type {Array<Annotation>} */
   let anns = [];
-
-  /** @type {Array<Array<Annotation>>} */
   let undoStack = [];
-
-  let mode = 'single'; // 'single' | 'double' | 'text' | 'select'
-  let placing = null;  // { type, start:{x,y}, cur:{x,y} }
+  let mode = 'single';
+  let placing = null;
   let selectedId = null;
-  let drag = null;     // { kind:'move'|'p0'|'p1', id, startMouse, startAnn }
-  let activePointerId = null;
+  let drag = null;
 
-  const mediaCoarse = window.matchMedia('(pointer: coarse)');
-  let HANDLE_R = mediaCoarse.matches ? 12 : 7;
-  let HIT_LINE_PX = mediaCoarse.matches ? 18 : 10;
+  // Zoom & pan state
+  let scale = 1;
+  let panX = 0;
+  let panY = 0;
+  let initialPinchDistance = 0;
+  let initialScale = 1;
+  let lastPanX = 0;
+  let lastPanY = 0;
+  let isPinching = false;
+  let zoomBadgeTimeout = null;
 
-  /** @typedef {{
-   *  id: string,
-   *  type: 'single'|'double'|'text',
-   *  x0:number, y0:number, x1:number, y1:number,
-   *  text:string,
-   *  color:string,
-   *  fontSize:number,
-   *  lineWidth:number
-   * }} Annotation
-   */
-
-  function updateInteractionSizing() {
-    HANDLE_R = mediaCoarse.matches ? 12 : 7;
-    HIT_LINE_PX = mediaCoarse.matches ? 18 : 10;
-  }
-  mediaCoarse.addEventListener('change', updateInteractionSizing);
+  const HANDLE_R = 10; // Larger for touch
+  const HIT_LINE_PX = 18; // Larger for touch
 
   function uid() { return Math.random().toString(16).slice(2) + Date.now().toString(16); }
   function deepCopyAnns(a) { return a.map(o => ({...o})); }
@@ -376,57 +562,12 @@
     drag = null;
     updateUndoUI();
     render();
-    refreshList();
-    setStatus('Undid last action.');
+    updateSelectionPanel();
+    setStatus('Undid last action');
   }
 
-  function updateUndoUI() { undoEl.disabled = undoStack.length === 0; }
+  function updateUndoUI() { undoBtn.disabled = undoStack.length === 0; }
   function setStatus(msg) { statusEl.textContent = msg; }
-
-  function getLayoutMetrics() {
-    const narrow = window.matchMedia('(max-width: 980px)').matches;
-    const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 120;
-    const sidebarWidth = narrow ? 0 : 340;
-    const padding = narrow ? 24 : 48;
-    return { headerHeight, sidebarWidth, padding };
-  }
-
-  function fitCanvasToImage(image) {
-    const { headerHeight, sidebarWidth, padding } = getLayoutMetrics();
-
-    const availW = Math.max(320, window.innerWidth - sidebarWidth - padding);
-    const availH = Math.max(260, window.innerHeight - headerHeight - padding);
-
-    const maxW = 3200;
-    const maxH = 3000;
-    const maxPixels = 4 * 1000 * 1000; // 4 megapixels for smooth canvas ops
-
-    let w = image.naturalWidth;
-    let h = image.naturalHeight;
-
-    let s = Math.min(1, availW / w, availH / h);
-
-    s = Math.min(s, maxW / w, maxH / h);
-
-    const pixels = (w * s) * (h * s);
-    if (pixels > maxPixels) {
-      s *= Math.sqrt(maxPixels / pixels);
-    }
-
-    const minDim = 300;
-    const scaledMin = Math.min(w * s, h * s);
-    if (scaledMin < minDim && Math.min(w, h) >= minDim) {
-      s = Math.max(s, minDim / Math.min(w, h));
-    }
-
-    w = Math.round(w * s);
-    h = Math.round(h * s);
-
-    canvas.width = w;
-    canvas.height = h;
-    overlay.style.width = w + 'px';
-    overlay.style.height = h + 'px';
-  }
 
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
   function dist2(ax, ay, bx, by) { const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
@@ -441,9 +582,59 @@
     return Math.hypot(px - cx, py - cy);
   }
 
-  function getPointerPos(evt) {
-    const r = overlay.getBoundingClientRect();
-    return { x: evt.clientX - r.left, y: evt.clientY - r.top };
+  function fitCanvasToStage(image) {
+    const stageRect = stage.getBoundingClientRect();
+    const availW = stageRect.width - 24;
+    const availH = stageRect.height - 24;
+    
+    let w = image.naturalWidth;
+    let h = image.naturalHeight;
+    
+    let s = Math.min(1, availW / w, availH / h);
+    
+    const maxPixels = 2 * 1000 * 1000;
+    const pixels = (w * s) * (h * s);
+    if (pixels > maxPixels) {
+      s *= Math.sqrt(maxPixels / pixels);
+    }
+    
+    w = Math.round(w * s);
+    h = Math.round(h * s);
+    
+    canvas.width = w;
+    canvas.height = h;
+    canvasContainer.style.width = w + 'px';
+    canvasContainer.style.height = h + 'px';
+    overlay.style.width = w + 'px';
+    overlay.style.height = h + 'px';
+    
+    // Reset zoom
+    scale = 1;
+    panX = 0;
+    panY = 0;
+    applyTransform();
+  }
+
+  function applyTransform() {
+    canvasContainer.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+  }
+
+  function showZoomBadge() {
+    zoomBadge.textContent = Math.round(scale * 100) + '%';
+    zoomBadge.classList.add('visible');
+    clearTimeout(zoomBadgeTimeout);
+    zoomBadgeTimeout = setTimeout(() => {
+      zoomBadge.classList.remove('visible');
+    }, 1500);
+  }
+
+  // Convert touch/mouse position to canvas coordinates
+  function getCanvasPos(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left) / scale,
+      y: (clientY - rect.top) / scale
+    };
   }
 
   function annotationById(id) { return anns.find(a => a.id === id) || null; }
@@ -453,15 +644,15 @@
     for (const a of order) {
       if (!a) continue;
       if (a.type === 'text') {
-        if (Math.sqrt(dist2(pt.x, pt.y, a.x0, a.y0)) <= HANDLE_R + 15) return { id: a.id, kind:'move' };
+        if (Math.sqrt(dist2(pt.x, pt.y, a.x0, a.y0)) <= HANDLE_R + 20) return { id: a.id, kind:'move' };
         continue;
       }
-      if (Math.sqrt(dist2(pt.x, pt.y, a.x0, a.y0)) <= HANDLE_R + 3) return { id: a.id, kind:'p0' };
-      if (Math.sqrt(dist2(pt.x, pt.y, a.x1, a.y1)) <= HANDLE_R + 3) return { id: a.id, kind:'p1' };
+      if (Math.sqrt(dist2(pt.x, pt.y, a.x0, a.y0)) <= HANDLE_R + 8) return { id: a.id, kind:'p0' };
+      if (Math.sqrt(dist2(pt.x, pt.y, a.x1, a.y1)) <= HANDLE_R + 8) return { id: a.id, kind:'p1' };
     }
     for (let i = anns.length - 1; i >= 0; i--) {
       const a = anns[i];
-      if (a.type === 'text') continue; // already handled above
+      if (a.type === 'text') continue;
       const d = pointToSegmentDistance(pt.x, pt.y, a.x0, a.y0, a.x1, a.y1);
       if (d <= HIT_LINE_PX) return { id: a.id, kind:'move' };
     }
@@ -472,6 +663,7 @@
     const base = Math.round(Math.min(W, H) * 0.05);
     return clamp(base, 18, 140);
   }
+  
   function measureLineWidth(W, H) {
     const lw = Math.round(Math.min(W, H) * 0.0055);
     return clamp(lw, 3, 24);
@@ -480,15 +672,12 @@
   function wrapTextToWidth(ctx2, text, maxWidth, font) {
     const raw = (text ?? '').toString().replace(/\r\n/g, '\n');
     const paragraphs = raw.split('\n');
-
     ctx2.save();
     ctx2.font = font;
-
     const out = [];
     for (const para of paragraphs) {
       const words = para.trim().split(/\s+/).filter(Boolean);
       if (!words.length) { out.push(''); continue; }
-
       let line = words[0];
       for (let i = 1; i < words.length; i++) {
         const test = line + ' ' + words[i];
@@ -497,7 +686,6 @@
       }
       out.push(line);
     }
-
     const finalLines = [];
     for (const l of out) {
       if (ctx2.measureText(l).width <= maxWidth) { finalLines.push(l); continue; }
@@ -509,7 +697,6 @@
       }
       if (cur) finalLines.push(cur);
     }
-
     ctx2.restore();
     return finalLines.slice(0, 10);
   }
@@ -520,14 +707,12 @@
     const ux = dx / len, uy = dy / len;
     const px = -uy, py = ux;
     const s = size;
-
     const bx = xTip - ux * s;
     const by = yTip - uy * s;
     const c1x = bx + px * (s * 0.6);
     const c1y = by + py * (s * 0.6);
     const c2x = bx - px * (s * 0.6);
     const c2y = by - py * (s * 0.6);
-
     ctx2.beginPath();
     ctx2.moveTo(xTip, yTip);
     ctx2.lineTo(c1x, c1y);
@@ -538,7 +723,7 @@
 
   function measureTextBlock(ctx2, lines, fontPx, maxW) {
     ctx2.save();
-    ctx2.font = `${fontPx}px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial`;
+    ctx2.font = `${fontPx}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
     const lineH = Math.round(fontPx * 1.22);
     let w = 0;
     for (const ln of lines) w = Math.max(w, ctx2.measureText(ln).width);
@@ -550,19 +735,16 @@
 
   function drawTextNoBox(ctx2, lines, centerX, centerY, fontPx, maxW, W, H, color) {
     const { w, h, lineH } = measureTextBlock(ctx2, lines, fontPx, maxW);
-
     const x0 = clamp(centerX - w/2, 2, W - w - 2);
     const y0 = clamp(centerY - h/2, 2, H - h - 2);
-
     ctx2.save();
-    ctx2.font = `${fontPx}px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial`;
+    ctx2.font = `${fontPx}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
     ctx2.fillStyle = color || DEFAULT_COLOR;
     ctx2.textBaseline = 'top';
     for (let i = 0; i < lines.length; i++) {
       ctx2.fillText(lines[i], x0, y0 + i * lineH);
     }
     ctx2.restore();
-
     return { x0, y0, w, h };
   }
 
@@ -580,15 +762,14 @@
     return Math.abs(ux) * (tbW / 2) + Math.abs(uy) * (tbH / 2);
   }
 
-  function drawAnnotation(ctx2, a, selected, W, H, scale = 1) {
-    const baseFontPx = measureFontPx(W / scale, H / scale) * scale;
+  function drawAnnotation(ctx2, a, selected, W, H, scaleVal = 1) {
+    const baseFontPx = measureFontPx(W / scaleVal, H / scaleVal) * scaleVal;
     const fontScale = (a.fontSize || DEFAULT_FONT_SIZE) / 100;
     const fontPx = baseFontPx * fontScale;
-    const baseLineW = measureLineWidth(W / scale, H / scale) * scale;
+    const baseLineW = measureLineWidth(W / scaleVal, H / scaleVal) * scaleVal;
     const lineWidthScale = (a.lineWidth || DEFAULT_LINE_WIDTH) / 100;
     const lineW = baseLineW * lineWidthScale;
-    const head = Math.max(14 * scale * lineWidthScale, Math.round(lineW * 5.5));
-
+    const head = Math.max(14 * scaleVal * lineWidthScale, Math.round(lineW * 5.5));
     const color = a.color || DEFAULT_COLOR;
 
     ctx2.save();
@@ -598,7 +779,7 @@
 
     if (a.type === 'text') {
       const maxW = Math.max(200, Math.round(W * 0.45));
-      const lines = wrapTextToWidth(ctx2, a.text, maxW, `${fontPx}px ui-sans-serif`);
+      const lines = wrapTextToWidth(ctx2, a.text, maxW, `${fontPx}px sans-serif`);
       drawTextNoBox(ctx2, lines, a.x0, a.y0, fontPx, maxW, W, H, color);
 
       if (selected) {
@@ -612,7 +793,6 @@
         ctx2.stroke();
         ctx2.restore();
       }
-
       ctx2.restore();
       return;
     }
@@ -645,7 +825,7 @@
 
     const { ux, uy, nx, ny } = unitAndNormal(a.x0,a.y0,a.x1,a.y1);
     const maxW = Math.max(200, Math.round(W * (a.type === 'single' ? (H > W ? 0.5 : 0.42) : 0.32)));
-    const lines = wrapTextToWidth(ctx2, a.text, maxW, `${fontPx}px ui-sans-serif`);
+    const lines = wrapTextToWidth(ctx2, a.text, maxW, `${fontPx}px sans-serif`);
     const tb = measureTextBlock(ctx2, lines, fontPx, maxW);
     const margin = Math.max(lineW * 2.0, fontPx * 0.4);
 
@@ -653,10 +833,8 @@
 
     if (a.type === 'single') {
       const along = 0.5 * Math.min(tb.w / Math.abs(ux), tb.h / Math.abs(uy)) + margin;
-
       centerX = a.x0 - ux * along;
       centerY = a.y0 - uy * along;
-
       const borderPad = 2 + tb.h/2;
       if (centerX < borderPad || centerX > W - borderPad || centerY < borderPad || centerY > H - borderPad) {
         const nudge = Math.max(lineW * 3, fontPx * 0.35);
@@ -691,193 +869,111 @@
   }
 
   function render() {
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (img) ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    else {
+    if (img) {
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    } else {
       ctx.save();
-      ctx.fillStyle = 'rgba(255,255,255,0.05)';
-      ctx.fillRect(0,0,canvas.width,canvas.height);
-      ctx.fillStyle = 'rgba(255,255,255,0.5)';
-      ctx.font = '16px ui-sans-serif, system-ui';
-      ctx.fillText('Upload an image to start annotating.', 18, 28);
+      ctx.fillStyle = 'rgba(255,255,255,.05)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'rgba(255,255,255,.35)';
+      ctx.font = '14px -apple-system, system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText('Open an image to start', canvas.width/2, canvas.height/2);
       ctx.restore();
       return;
     }
 
-    for (const a of anns) drawAnnotation(ctx, a, a.id === selectedId, canvas.width, canvas.height);
+    for (const a of anns) {
+      drawAnnotation(ctx, a, a.id === selectedId, canvas.width, canvas.height);
+    }
 
     if (placing) {
       ctx.save();
+      const lineW = measureLineWidth(canvas.width, canvas.height);
+      
+      // Draw dashed line from start to current position
       ctx.strokeStyle = DEFAULT_COLOR;
-      ctx.lineWidth = measureLineWidth(canvas.width, canvas.height);
+      ctx.lineWidth = lineW;
       ctx.setLineDash([10, 8]);
       ctx.beginPath();
       ctx.moveTo(placing.start.x, placing.start.y);
       ctx.lineTo(placing.cur.x, placing.cur.y);
       ctx.stroke();
+      
+      // Draw start point indicator - pulsing circle
+      ctx.setLineDash([]);
+      const startR = Math.max(12, lineW * 2.5);
+      
+      // Outer ring
+      ctx.strokeStyle = DEFAULT_COLOR;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(placing.start.x, placing.start.y, startR, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Inner filled circle
+      ctx.fillStyle = DEFAULT_COLOR;
+      ctx.beginPath();
+      ctx.arc(placing.start.x, placing.start.y, startR * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Crosshair lines for precision
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      ctx.lineWidth = 1.5;
+      const crossLen = startR + 8;
+      ctx.beginPath();
+      ctx.moveTo(placing.start.x - crossLen, placing.start.y);
+      ctx.lineTo(placing.start.x - startR - 4, placing.start.y);
+      ctx.moveTo(placing.start.x + startR + 4, placing.start.y);
+      ctx.lineTo(placing.start.x + crossLen, placing.start.y);
+      ctx.moveTo(placing.start.x, placing.start.y - crossLen);
+      ctx.lineTo(placing.start.x, placing.start.y - startR - 4);
+      ctx.moveTo(placing.start.x, placing.start.y + startR + 4);
+      ctx.lineTo(placing.start.x, placing.start.y + crossLen);
+      ctx.stroke();
+      
       ctx.restore();
     }
   }
 
-  function truncateText(text, maxLen = 25) {
-    if (!text) return '(empty)';
-    if (text.length <= maxLen) return text;
-    return text.slice(0, maxLen - 1) + '…';
-  }
-
-  function refreshList() {
-    listEl.innerHTML = '';
-    if (!anns.length) {
-      const empty = document.createElement('div');
-      empty.className = 'hint';
-      empty.textContent = 'No annotations yet.';
-      listEl.appendChild(empty);
+  function updateSelectionPanel() {
+    if (!selectedId) {
+      // No selection - show empty state
+      selLabel.textContent = 'No selection';
+      selLabel.classList.remove('has-selection');
+      selText.textContent = '';
+      selControls.classList.add('hidden');
       return;
     }
-    for (const a of anns.slice().reverse()) {
-      const row = document.createElement('div');
-      row.className = 'item';
-      row.style.borderColor = (a.id === selectedId) ? 'rgba(77,163,255,.55)' : 'rgba(255,255,255,.10)';
-
-      const badge = document.createElement('div');
-      badge.className = 'badge';
-      badge.textContent = a.type === 'text' ? 'T' : (a.type === 'single' ? '→' : '↔');
-      badge.style.color = a.color || DEFAULT_COLOR;
-      badge.style.borderColor = a.color || DEFAULT_COLOR;
-
-      const meta = document.createElement('div');
-      meta.className = 'meta';
-
-      const t = document.createElement('div');
-      t.className = 'title';
-      t.textContent = truncateText(a.text);
-      t.title = a.text || '(empty)'; // full text on hover
-      meta.appendChild(t);
-
-      const controls = document.createElement('div');
-      controls.className = 'controls';
-
-      const fontAdj = document.createElement('div');
-      fontAdj.className = 'font-adj';
-
-      const minusBtn = document.createElement('button');
-      minusBtn.textContent = '−';
-      minusBtn.title = 'Decrease font size';
-      minusBtn.onclick = (e) => {
-        e.stopPropagation();
-        if ((a.fontSize || DEFAULT_FONT_SIZE) > MIN_FONT_SIZE) {
-          pushUndo();
-          a.fontSize = (a.fontSize || DEFAULT_FONT_SIZE) - FONT_STEP;
-          render();
-          refreshList();
-        }
-      };
-
-      const fontVal = document.createElement('span');
-      fontVal.className = 'val';
-      fontVal.textContent = 'T ' + (a.fontSize || DEFAULT_FONT_SIZE) + '%';
-
-      const plusBtn = document.createElement('button');
-      plusBtn.textContent = '+';
-      plusBtn.title = 'Increase font size';
-      plusBtn.onclick = (e) => {
-        e.stopPropagation();
-        if ((a.fontSize || DEFAULT_FONT_SIZE) < MAX_FONT_SIZE) {
-          pushUndo();
-          a.fontSize = (a.fontSize || DEFAULT_FONT_SIZE) + FONT_STEP;
-          render();
-          refreshList();
-        }
-      };
-
-      fontAdj.appendChild(minusBtn);
-      fontAdj.appendChild(fontVal);
-      fontAdj.appendChild(plusBtn);
-
-      const colorSel = document.createElement('select');
-      colorSel.className = 'color-sel';
-      colorSel.title = 'Change color';
-      for (const opt of COLOR_OPTIONS) {
-        const option = document.createElement('option');
-        option.value = opt.value;
-        option.textContent = opt.label;
-        option.style.color = opt.value;
-        if ((a.color || DEFAULT_COLOR) === opt.value) option.selected = true;
-        colorSel.appendChild(option);
-      }
-      colorSel.onchange = (e) => {
-        e.stopPropagation();
-        pushUndo();
-        a.color = colorSel.value;
-        render();
-        refreshList();
-      };
-      colorSel.onclick = (e) => e.stopPropagation();
-
-      controls.appendChild(fontAdj);
-      controls.appendChild(colorSel);
-
-      if (a.type !== 'text') {
-        const lineAdj = document.createElement('div');
-        lineAdj.className = 'font-adj';
-        lineAdj.title = 'Line width';
-
-        const lineMinusBtn = document.createElement('button');
-        lineMinusBtn.textContent = '−';
-        lineMinusBtn.title = 'Decrease line width';
-        lineMinusBtn.onclick = (e) => {
-          e.stopPropagation();
-          if ((a.lineWidth || DEFAULT_LINE_WIDTH) > MIN_LINE_WIDTH) {
-            pushUndo();
-            a.lineWidth = (a.lineWidth || DEFAULT_LINE_WIDTH) - LINE_WIDTH_STEP;
-            render();
-            refreshList();
-          }
-        };
-
-        const lineVal = document.createElement('span');
-        lineVal.className = 'val';
-        lineVal.textContent = '↔ ' + (a.lineWidth || DEFAULT_LINE_WIDTH) + '%';
-
-        const linePlusBtn = document.createElement('button');
-        linePlusBtn.textContent = '+';
-        linePlusBtn.title = 'Increase line width';
-        linePlusBtn.onclick = (e) => {
-          e.stopPropagation();
-          if ((a.lineWidth || DEFAULT_LINE_WIDTH) < MAX_LINE_WIDTH) {
-            pushUndo();
-            a.lineWidth = (a.lineWidth || DEFAULT_LINE_WIDTH) + LINE_WIDTH_STEP;
-            render();
-            refreshList();
-          }
-        };
-
-        lineAdj.appendChild(lineMinusBtn);
-        lineAdj.appendChild(lineVal);
-        lineAdj.appendChild(linePlusBtn);
-        controls.appendChild(lineAdj);
-      }
-
-      meta.appendChild(controls);
-
-      row.appendChild(badge);
-      row.appendChild(meta);
-
-      row.onclick = () => {
-        selectedId = a.id;
-        setMode('select');
-        render();
-        refreshList();
-        setStatus('Selected annotation.');
-      };
-
-      listEl.appendChild(row);
+    
+    const a = annotationById(selectedId);
+    if (!a) {
+      selLabel.textContent = 'No selection';
+      selLabel.classList.remove('has-selection');
+      selText.textContent = '';
+      selControls.classList.add('hidden');
+      return;
     }
+    
+    // Show selection info
+    const typeLabels = { single: '→', double: '↔', text: 'T' };
+    selLabel.textContent = typeLabels[a.type] || '•';
+    selLabel.classList.add('has-selection');
+    selText.textContent = a.text || '(no text)';
+    selControls.classList.remove('hidden');
+    
+    fontVal.textContent = (a.fontSize || DEFAULT_FONT_SIZE) + '%';
+    lineVal.textContent = (a.lineWidth || DEFAULT_LINE_WIDTH) + '%';
+    colorBtn.style.background = a.color || DEFAULT_COLOR;
+    
+    // Hide line width control for text-only
+    lineAdj.style.display = a.type === 'text' ? 'none' : 'flex';
   }
 
   function ensureCanvasReady() {
-    if (!img) { setStatus('Upload an image first.'); return false; }
+    if (!img) { setStatus('Open an image first'); return false; }
     return true;
   }
 
@@ -885,34 +981,38 @@
     mode = next;
     placing = null;
     drag = null;
+    
     btnSingle.classList.toggle('active', mode === 'single');
     btnDouble.classList.toggle('active', mode === 'double');
     btnText.classList.toggle('active', mode === 'text');
     btnSelect.classList.toggle('active', mode === 'select');
 
-    if (mode !== 'select') selectedId = null;
+    if (mode !== 'select') {
+      selectedId = null;
+      updateSelectionPanel();
+    }
 
-    if (mode === 'select') setStatus('Select/edit mode: tap an annotation, drag to move.');
-    else if (mode === 'text') setStatus('Text mode: tap to place a text box.');
-    else setStatus('Add mode: tap start then end.');
-    render(); refreshList();
+    if (mode === 'select') setStatus('Tap to select, drag to move');
+    else if (mode === 'text') setStatus('Tap to place text');
+    else setStatus('Tap start, then tap end');
+    
+    render();
   }
 
+  // Tool buttons
   btnSingle.onclick = () => setMode('single');
   btnDouble.onclick = () => setMode('double');
   btnText.onclick = () => setMode('text');
   btnSelect.onclick = () => setMode('select');
 
-  // --- Textarea editor modal ---
+  // Text editor modal
   let modalResolve = null;
 
   function openTextEditor({ title, initial }) {
     modalTitle.textContent = title;
     modalText.value = initial ?? '';
     modal.classList.add('open');
-    modalText.focus();
-    modalText.selectionStart = modalText.value.length;
-    modalText.selectionEnd = modalText.value.length;
+    setTimeout(() => modalText.focus(), 100);
     return new Promise((resolve) => { modalResolve = resolve; });
   }
 
@@ -925,16 +1025,11 @@
 
   modalCancel.onclick = () => closeTextEditor(null);
   modalOk.onclick = () => closeTextEditor(modalText.value);
-  modal.addEventListener('mousedown', (e) => {
+  modal.addEventListener('click', (e) => {
     if (e.target === modal) closeTextEditor(null);
   });
-  window.addEventListener('keydown', (e) => {
-    if (!modal.classList.contains('open')) return;
-    if (e.key === 'Escape') { e.preventDefault(); closeTextEditor(null); }
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); closeTextEditor(modalText.value); }
-  });
 
-  // Upload
+  // File upload
   fileEl.addEventListener('change', async () => {
     const f = fileEl.files && fileEl.files[0];
     if (!f) return;
@@ -947,147 +1042,124 @@
     const image = new Image();
     image.onload = () => {
       img = image;
-      fitCanvasToImage(image);
-      wrap.style.width = canvas.width + 'px';
-      wrap.style.height = canvas.height + 'px';
+      fitCanvasToStage(image);
       anns = [];
       undoStack = [];
       placing = null;
       selectedId = null;
       updateUndoUI();
-      refreshList();
+      updateSelectionPanel();
       render();
-      setStatus('Image loaded. Choose an arrow tool and tap to start/end.');
+      setStatus('Image loaded. Choose a tool and tap to annotate');
       URL.revokeObjectURL(url);
     };
     image.src = url;
   });
 
-  // Drag undo: push once at drag start
+  // Touch handling
+  let touchStartTime = 0;
+  let lastTouchPos = null;
   let dragUndoPushed = false;
+
   function pushUndoOncePerDrag() {
     if (!drag || dragUndoPushed) return;
     pushUndo();
     dragUndoPushed = true;
   }
-  overlay.addEventListener('pointerdown', () => { dragUndoPushed = false; });
 
-  function addAnnotation(type, start, end, text) {
-    const a = {
-      id: uid(), type,
-      x0:start.x, y0:start.y, x1:end.x, y1:end.y,
-      text: (text ?? '').toString().trim(),
-      color: DEFAULT_COLOR,
-      fontSize: DEFAULT_FONT_SIZE,
-      lineWidth: DEFAULT_LINE_WIDTH
-    };
-    anns.push(a);
-    selectedId = a.id;
-    refreshList();
-    render();
+  function getTouchDistance(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.hypot(dx, dy);
   }
 
-  function addTextAnnotation(pos, text) {
-    const a = {
-      id: uid(), type: 'text',
-      x0: pos.x, y0: pos.y, x1: pos.x, y1: pos.y,
-      text: (text ?? '').toString().trim(),
-      color: DEFAULT_COLOR,
-      fontSize: DEFAULT_FONT_SIZE,
-      lineWidth: DEFAULT_LINE_WIDTH
+  function getTouchCenter(touches) {
+    return {
+      x: (touches[0].clientX + touches[1].clientX) / 2,
+      y: (touches[0].clientY + touches[1].clientY) / 2
     };
-    anns.push(a);
-    selectedId = a.id;
-    refreshList();
-    render();
   }
 
-  // Pointer interactions (mouse + touch)
-  overlay.addEventListener('pointerdown', (evt) => {
+  overlay.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    dragUndoPushed = false;
+    
+    if (e.touches.length === 2) {
+      // Start pinch zoom
+      isPinching = true;
+      initialPinchDistance = getTouchDistance(e.touches);
+      initialScale = scale;
+      const center = getTouchCenter(e.touches);
+      lastPanX = center.x;
+      lastPanY = center.y;
+      return;
+    }
+    
+    if (e.touches.length !== 1) return;
+    
+    const touch = e.touches[0];
+    touchStartTime = Date.now();
+    lastTouchPos = { x: touch.clientX, y: touch.clientY };
+    
     if (!ensureCanvasReady()) return;
-    if (activePointerId !== null && activePointerId !== evt.pointerId) return;
-    activePointerId = evt.pointerId;
-    overlay.setPointerCapture(evt.pointerId);
-    if (evt.pointerType === 'touch') evt.preventDefault();
-
-    const pt = getPointerPos(evt);
-
+    const pt = getCanvasPos(touch.clientX, touch.clientY);
+    
     if (mode === 'select') {
       const hit = pickAnnotation(pt);
-      if (!hit) { selectedId = null; render(); refreshList(); return; }
+      if (!hit) {
+        selectedId = null;
+        render();
+        updateSelectionPanel();
+        return;
+      }
       selectedId = hit.id;
       const a = annotationById(hit.id);
       drag = { kind: hit.kind, id: hit.id, startMouse: pt, startAnn: {...a} };
-      render(); refreshList();
-      return;
-    }
-
-    if (mode === 'text') {
-      (async () => {
-        const text = await openTextEditor({ title: 'Enter text', initial: '' });
-        if (text === null) { render(); setStatus('Cancelled.'); return; }
-        pushUndo();
-        addTextAnnotation(pt, text);
-        setMode('select');
-        setStatus('Text added. Now in Select mode.');
-      })();
-      return;
-    }
-
-    const type = mode === 'double' ? 'double' : 'single';
-    if (!placing) {
-      placing = { type, start: pt, cur: pt };
-      selectedId = null;
       render();
-      setStatus('Now tap the end point.');
-    } else {
-      const start = placing.start;
-      const end = pt;
-      placing = null;
-
-      if (Math.hypot(end.x - start.x, end.y - start.y) < 6) {
-        render();
-        setStatus('Arrow too short; try again.');
-        return;
-      }
-
-      const title = (type === 'double')
-        ? 'Enter size text (e.g., "10 in")'
-        : 'Enter description text';
-
-      (async () => {
-        const text = await openTextEditor({ title, initial: '' });
-        if (text === null) { render(); setStatus('Cancelled.'); return; }
-        pushUndo();
-        addAnnotation(type, start, end, text);
-
-        setMode('select');
-        setStatus('Added. Now in Select mode.');
-      })();
+      updateSelectionPanel();
     }
-  });
+  }, { passive: false });
 
-  overlay.addEventListener('pointermove', (evt) => {
-    if (!img) return;
-    if (activePointerId !== null && evt.pointerId !== activePointerId) return;
-    const pt = getPointerPos(evt);
-
+  overlay.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    
+    if (isPinching && e.touches.length === 2) {
+      // Pinch zoom
+      const dist = getTouchDistance(e.touches);
+      const newScale = clamp(initialScale * (dist / initialPinchDistance), 0.5, 5);
+      
+      const center = getTouchCenter(e.touches);
+      panX += center.x - lastPanX;
+      panY += center.y - lastPanY;
+      lastPanX = center.x;
+      lastPanY = center.y;
+      
+      scale = newScale;
+      applyTransform();
+      showZoomBadge();
+      return;
+    }
+    
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const pt = getCanvasPos(touch.clientX, touch.clientY);
+    
     if (placing) {
       placing.cur = pt;
       render();
       return;
     }
-
+    
     if (drag) {
       const a = annotationById(drag.id);
       if (!a) return;
-
+      
       const dx = pt.x - drag.startMouse.x;
       const dy = pt.y - drag.startMouse.y;
       const base = drag.startAnn;
-
+      
       pushUndoOncePerDrag();
-
+      
       if (a.type === 'text') {
         a.x0 = clamp(base.x0 + dx, 0, canvas.width);
         a.y0 = clamp(base.y0 + dy, 0, canvas.height);
@@ -1106,126 +1178,411 @@
         a.y1 = clamp(base.y1 + dy, 0, canvas.height);
       }
       render();
-      refreshList();
-    } else if (mode === 'select' && evt.pointerType !== 'touch') {
-      const hit = pickAnnotation(pt);
-      overlay.style.cursor = hit ? (hit.kind === 'move' ? 'move' : 'pointer') : 'default';
-    } else if (evt.pointerType !== 'touch') {
-      overlay.style.cursor = 'crosshair';
+      updateSelectionPanel();
     }
-  });
+    
+    lastTouchPos = { x: touch.clientX, y: touch.clientY };
+  }, { passive: false });
 
-  function endPointerDrag(evt) {
-    if (activePointerId !== null && evt.pointerId !== activePointerId) return;
-    if (activePointerId !== null) {
-      overlay.releasePointerCapture(activePointerId);
-      activePointerId = null;
+  overlay.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    
+    if (isPinching) {
+      isPinching = false;
+      if (e.touches.length === 0) return;
     }
+    
+    if (e.touches.length > 0) return;
+    
+    const wasDragging = drag && dragUndoPushed;
+    
     if (drag) {
       drag = null;
-      render();
-      setStatus('Edited annotation.');
+      if (wasDragging) {
+        setStatus('Moved annotation');
+      }
+      return;
     }
+    
+    if (!lastTouchPos) return;
+    if (!ensureCanvasReady()) return;
+    
+    const pt = getCanvasPos(lastTouchPos.x, lastTouchPos.y);
+    const tapDuration = Date.now() - touchStartTime;
+    
+    if (tapDuration > 300) return; // Not a tap
+    
+    // Text mode: single tap to place
+    if (mode === 'text') {
+      (async () => {
+        const text = await openTextEditor({ title: 'Enter text', initial: '' });
+        if (text === null) { render(); setStatus('Cancelled'); return; }
+        pushUndo();
+        addTextAnnotation(pt, text);
+        setMode('select');
+        setStatus('Text added');
+      })();
+      return;
+    }
+    
+    // Arrow modes
+    if (mode === 'single' || mode === 'double') {
+      const type = mode;
+      if (!placing) {
+        placing = { type, start: pt, cur: pt };
+        selectedId = null;
+        render();
+        setStatus('Now tap the end point');
+      } else {
+        const start = placing.start;
+        const end = pt;
+        placing = null;
+        
+        if (Math.hypot(end.x - start.x, end.y - start.y) < 15) {
+          render();
+          setStatus('Arrow too short, try again');
+          return;
+        }
+        
+        const title = (type === 'double')
+          ? 'Enter size text (e.g., "10 in")'
+          : 'Enter description text';
+        
+        (async () => {
+          const text = await openTextEditor({ title, initial: '' });
+          if (text === null) { render(); setStatus('Cancelled'); return; }
+          pushUndo();
+          addAnnotation(type, start, end, text);
+          setMode('select');
+          setStatus('Arrow added');
+        })();
+      }
+    }
+    
+    lastTouchPos = null;
+  }, { passive: false });
+
+  // Mouse fallback for testing on desktop
+  overlay.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    
+    dragUndoPushed = false;
+    touchStartTime = Date.now();
+    lastTouchPos = { x: e.clientX, y: e.clientY };
+    
+    if (!ensureCanvasReady()) return;
+    const pt = getCanvasPos(e.clientX, e.clientY);
+    
+    if (mode === 'select') {
+      const hit = pickAnnotation(pt);
+      if (!hit) {
+        selectedId = null;
+        render();
+        updateSelectionPanel();
+        return;
+      }
+      selectedId = hit.id;
+      const a = annotationById(hit.id);
+      drag = { kind: hit.kind, id: hit.id, startMouse: pt, startAnn: {...a} };
+      render();
+      updateSelectionPanel();
+    }
+  });
+
+  overlay.addEventListener('mousemove', (e) => {
+    if (!lastTouchPos) return;
+    
+    const pt = getCanvasPos(e.clientX, e.clientY);
+    
+    if (placing) {
+      placing.cur = pt;
+      render();
+      return;
+    }
+    
+    if (drag) {
+      const a = annotationById(drag.id);
+      if (!a) return;
+      
+      const dx = pt.x - drag.startMouse.x;
+      const dy = pt.y - drag.startMouse.y;
+      const base = drag.startAnn;
+      
+      pushUndoOncePerDrag();
+      
+      if (a.type === 'text') {
+        a.x0 = clamp(base.x0 + dx, 0, canvas.width);
+        a.y0 = clamp(base.y0 + dy, 0, canvas.height);
+        a.x1 = a.x0;
+        a.y1 = a.y0;
+      } else if (drag.kind === 'move') {
+        a.x0 = clamp(base.x0 + dx, 0, canvas.width);
+        a.y0 = clamp(base.y0 + dy, 0, canvas.height);
+        a.x1 = clamp(base.x1 + dx, 0, canvas.width);
+        a.y1 = clamp(base.y1 + dy, 0, canvas.height);
+      } else if (drag.kind === 'p0') {
+        a.x0 = clamp(base.x0 + dx, 0, canvas.width);
+        a.y0 = clamp(base.y0 + dy, 0, canvas.height);
+      } else if (drag.kind === 'p1') {
+        a.x1 = clamp(base.x1 + dx, 0, canvas.width);
+        a.y1 = clamp(base.y1 + dy, 0, canvas.height);
+      }
+      render();
+      updateSelectionPanel();
+    }
+    
+    lastTouchPos = { x: e.clientX, y: e.clientY };
+  });
+
+  overlay.addEventListener('mouseup', (e) => {
+    const wasDragging = drag && dragUndoPushed;
+    
+    if (drag) {
+      drag = null;
+      lastTouchPos = null;
+      if (wasDragging) {
+        setStatus('Moved annotation');
+      }
+      return;
+    }
+    
+    if (!lastTouchPos) return;
+    if (!ensureCanvasReady()) {
+      lastTouchPos = null;
+      return;
+    }
+    
+    const pt = getCanvasPos(lastTouchPos.x, lastTouchPos.y);
+    lastTouchPos = null;
+    
+    if (mode === 'text') {
+      (async () => {
+        const text = await openTextEditor({ title: 'Enter text', initial: '' });
+        if (text === null) { render(); setStatus('Cancelled'); return; }
+        pushUndo();
+        addTextAnnotation(pt, text);
+        setMode('select');
+        setStatus('Text added');
+      })();
+      return;
+    }
+    
+    if (mode === 'single' || mode === 'double') {
+      const type = mode;
+      if (!placing) {
+        placing = { type, start: pt, cur: pt };
+        selectedId = null;
+        render();
+        setStatus('Now tap the end point');
+      } else {
+        const start = placing.start;
+        const end = pt;
+        placing = null;
+        
+        if (Math.hypot(end.x - start.x, end.y - start.y) < 10) {
+          render();
+          setStatus('Arrow too short, try again');
+          return;
+        }
+        
+        const title = (type === 'double')
+          ? 'Enter size text (e.g., "10 in")'
+          : 'Enter description text';
+        
+        (async () => {
+          const text = await openTextEditor({ title, initial: '' });
+          if (text === null) { render(); setStatus('Cancelled'); return; }
+          pushUndo();
+          addAnnotation(type, start, end, text);
+          setMode('select');
+          setStatus('Arrow added');
+        })();
+      }
+    }
+  });
+
+  // Scroll wheel zoom on desktop
+  stage.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    scale = clamp(scale * delta, 0.5, 5);
+    applyTransform();
+    showZoomBadge();
+  }, { passive: false });
+
+  function addAnnotation(type, start, end, text) {
+    const a = { 
+      id: uid(), type, 
+      x0: start.x, y0: start.y, x1: end.x, y1: end.y, 
+      text: (text ?? '').toString().trim(),
+      color: DEFAULT_COLOR,
+      fontSize: DEFAULT_FONT_SIZE,
+      lineWidth: DEFAULT_LINE_WIDTH
+    };
+    anns.push(a);
+    selectedId = a.id;
+    updateSelectionPanel();
+    render();
   }
 
-  overlay.addEventListener('pointerup', endPointerDrag);
-  overlay.addEventListener('pointercancel', endPointerDrag);
+  function addTextAnnotation(pos, text) {
+    const a = { 
+      id: uid(), type: 'text', 
+      x0: pos.x, y0: pos.y, x1: pos.x, y1: pos.y, 
+      text: (text ?? '').toString().trim(),
+      color: DEFAULT_COLOR,
+      fontSize: DEFAULT_FONT_SIZE,
+      lineWidth: DEFAULT_LINE_WIDTH
+    };
+    anns.push(a);
+    selectedId = a.id;
+    updateSelectionPanel();
+    render();
+  }
 
-  overlay.addEventListener('pointerleave', (evt) => {
-    if (placing) return;
-    if (drag) { drag = null; render(); }
-    if (evt.pointerType !== 'touch') overlay.style.cursor = 'default';
-  });
-
-  overlay.addEventListener('dblclick', async (evt) => {
-    if (!ensureCanvasReady()) return;
-    const pt = getPointerPos(evt);
-    const hit = pickAnnotation(pt);
-    if (!hit) return;
-
-    selectedId = hit.id;
-    const a = annotationById(hit.id);
+  // Selection controls
+  editTextBtn.onclick = async () => {
+    if (!selectedId) return;
+    const a = annotationById(selectedId);
     if (!a) return;
-
-    let title;
-    if (a.type === 'double') title = 'Edit size text (e.g., "10 in")';
-    else if (a.type === 'text') title = 'Edit text';
-    else title = 'Edit description text';
-
+    
+    const title = a.type === 'double' ? 'Edit size text' : 'Edit text';
     const next = await openTextEditor({ title, initial: a.text });
     if (next === null) return;
-
+    
     pushUndo();
     a.text = next.toString();
-    render(); refreshList();
-    setStatus('Text updated.');
-  });
+    render();
+    updateSelectionPanel();
+    setStatus('Text updated');
+  };
 
-  // Keyboard shortcuts
-  window.addEventListener('keydown', (e) => {
-    if (modal.classList.contains('open')) return;
-
-    const z = (e.key || '').toLowerCase() === 'z';
-    const isUndo = (z && (e.ctrlKey || e.metaKey) && !e.shiftKey);
-    if (isUndo) { e.preventDefault(); doUndo(); }
-
-    if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
-      e.preventDefault();
-      deleteSelected();
-    }
-
-    if (e.key === 'Escape') {
-      placing = null; drag = null;
-      render();
-      setStatus('Cancelled current action.');
-    }
-  });
-
-  // Buttons
-  undoEl.addEventListener('click', doUndo);
-
-  function deleteSelected() {
+  deleteBtn.onclick = () => {
     if (!selectedId) return;
     pushUndo();
     anns = anns.filter(a => a.id !== selectedId);
     selectedId = null;
-    render(); refreshList();
-    setStatus('Deleted annotation.');
-  }
-  deleteEl.addEventListener('click', deleteSelected);
+    render();
+    updateSelectionPanel();
+    setStatus('Deleted annotation');
+  };
 
-  editTextEl.addEventListener('click', async () => {
-    if (!selectedId) { setStatus('Select an annotation first.'); return; }
+  // Font size controls
+  fontMinus.onclick = () => {
+    if (!selectedId) return;
     const a = annotationById(selectedId);
-    if (!a) return;
-
-    let title;
-    if (a.type === 'double') title = 'Edit size text (e.g., "10 in")';
-    else if (a.type === 'text') title = 'Edit text';
-    else title = 'Edit description text';
-
-    const next = await openTextEditor({ title, initial: a.text });
-    if (next === null) return;
-
+    if (!a || (a.fontSize || DEFAULT_FONT_SIZE) <= MIN_FONT_SIZE) return;
     pushUndo();
-    a.text = next.toString();
-    render(); refreshList();
-    setStatus('Text updated.');
-  });
+    a.fontSize = (a.fontSize || DEFAULT_FONT_SIZE) - FONT_STEP;
+    render();
+    updateSelectionPanel();
+  };
 
-  clearAllEl.addEventListener('click', () => {
-    if (!img || !anns.length) return;
-    const ok = window.confirm('Clear all annotations?');
-    if (!ok) return;
+  fontPlus.onclick = () => {
+    if (!selectedId) return;
+    const a = annotationById(selectedId);
+    if (!a || (a.fontSize || DEFAULT_FONT_SIZE) >= MAX_FONT_SIZE) return;
+    pushUndo();
+    a.fontSize = (a.fontSize || DEFAULT_FONT_SIZE) + FONT_STEP;
+    render();
+    updateSelectionPanel();
+  };
+
+  // Line width controls
+  lineMinus.onclick = () => {
+    if (!selectedId) return;
+    const a = annotationById(selectedId);
+    if (!a || a.type === 'text' || (a.lineWidth || DEFAULT_LINE_WIDTH) <= MIN_LINE_WIDTH) return;
+    pushUndo();
+    a.lineWidth = (a.lineWidth || DEFAULT_LINE_WIDTH) - LINE_WIDTH_STEP;
+    render();
+    updateSelectionPanel();
+  };
+
+  linePlus.onclick = () => {
+    if (!selectedId) return;
+    const a = annotationById(selectedId);
+    if (!a || a.type === 'text' || (a.lineWidth || DEFAULT_LINE_WIDTH) >= MAX_LINE_WIDTH) return;
+    pushUndo();
+    a.lineWidth = (a.lineWidth || DEFAULT_LINE_WIDTH) + LINE_WIDTH_STEP;
+    render();
+    updateSelectionPanel();
+  };
+
+  // Color picker
+  function buildColorGrid() {
+    colorGrid.innerHTML = '';
+    for (const opt of COLOR_OPTIONS) {
+      const btn = document.createElement('button');
+      btn.style.background = opt.value;
+      btn.title = opt.label;
+      btn.onclick = () => {
+        if (!selectedId) return;
+        const a = annotationById(selectedId);
+        if (!a) return;
+        pushUndo();
+        a.color = opt.value;
+        render();
+        updateSelectionPanel();
+        colorOverlay.classList.remove('open');
+      };
+      colorGrid.appendChild(btn);
+    }
+  }
+  buildColorGrid();
+
+  colorBtn.onclick = () => {
+    if (!selectedId) return;
+    colorOverlay.classList.add('open');
+  };
+
+  closeColorBtn.onclick = () => {
+    colorOverlay.classList.remove('open');
+  };
+
+  colorOverlay.onclick = (e) => {
+    if (e.target === colorOverlay) colorOverlay.classList.remove('open');
+  };
+
+  // Menu
+  menuBtn.onclick = () => menuOverlay.classList.add('open');
+  closeMenuBtn.onclick = () => menuOverlay.classList.remove('open');
+  menuOverlay.onclick = (e) => {
+    if (e.target === menuOverlay) menuOverlay.classList.remove('open');
+  };
+
+  undoBtn.onclick = doUndo;
+
+  resetZoomBtn.onclick = () => {
+    scale = 1;
+    panX = 0;
+    panY = 0;
+    applyTransform();
+    showZoomBadge();
+    menuOverlay.classList.remove('open');
+  };
+
+  clearBtn.onclick = () => {
+    if (!img || !anns.length) {
+      menuOverlay.classList.remove('open');
+      return;
+    }
+    if (!confirm('Clear all annotations?')) return;
     pushUndo();
     anns = [];
     selectedId = null;
-    render(); refreshList();
-    setStatus('Cleared all annotations.');
-  });
+    render();
+    updateSelectionPanel();
+    setStatus('Cleared all annotations');
+    menuOverlay.classList.remove('open');
+  };
 
-  exportEl.addEventListener('click', () => {
-    if (!img) { setStatus('Upload an image first.'); return; }
+  exportBtn.onclick = () => {
+    if (!img) {
+      setStatus('Open an image first');
+      menuOverlay.classList.remove('open');
+      return;
+    }
 
     const out = document.createElement('canvas');
     out.width = img.naturalWidth;
@@ -1236,7 +1593,7 @@
 
     const sx = out.width / canvas.width;
     const sy = out.height / canvas.height;
-    const scale = (sx + sy) / 2;
+    const scaleVal = (sx + sy) / 2;
 
     for (const a of anns) {
       const aa = {
@@ -1244,7 +1601,7 @@
         x0: a.x0 * sx, y0: a.y0 * sy,
         x1: a.x1 * sx, y1: a.y1 * sy
       };
-      drawAnnotation(octx, aa, false, out.width, out.height, scale);
+      drawAnnotation(octx, aa, false, out.width, out.height, scaleVal);
     }
 
     const link = document.createElement('a');
@@ -1254,19 +1611,44 @@
     link.click();
     link.remove();
 
-    setStatus('PNG exported.');
-  });
+    setStatus('Image exported');
+    menuOverlay.classList.remove('open');
+  };
+
+  // Prevent default touch behaviors on body
+  document.body.addEventListener('touchmove', (e) => {
+    if (e.target.closest('.modal-card') || e.target.closest('.menu-sheet')) return;
+    e.preventDefault();
+  }, { passive: false });
 
   // Init
-  canvas.width = 1200; canvas.height = 700;
-  overlay.style.width = canvas.width + 'px';
-  overlay.style.height = canvas.height + 'px';
-  wrap.style.width = canvas.width + 'px';
-  wrap.style.height = canvas.height + 'px';
-  updateUndoUI();
-  refreshList();
-  render();
-  setMode('single');
+  function initCanvas() {
+    const stageRect = stage.getBoundingClientRect();
+    canvas.width = Math.floor(stageRect.width - 24);
+    canvas.height = Math.floor(stageRect.height - 24);
+    canvasContainer.style.width = canvas.width + 'px';
+    canvasContainer.style.height = canvas.height + 'px';
+    overlay.style.width = canvas.width + 'px';
+    overlay.style.height = canvas.height + 'px';
+    render();
+  }
+
+  // Wait for layout
+  requestAnimationFrame(() => {
+    initCanvas();
+    updateUndoUI();
+    setMode('single');
+  });
+
+  // Handle resize
+  window.addEventListener('resize', () => {
+    if (img) {
+      fitCanvasToStage(img);
+      render();
+    } else {
+      initCanvas();
+    }
+  });
 
 })();
 </script>
